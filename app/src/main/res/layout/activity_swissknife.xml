@@ -23,4 +23,60 @@
     android:layout_height="match_parent"
     tools:context="com.casuals.tlou.cvlab.imgproc.SwissKnife">
 
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true">
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:id="@+id/swissknife_imageview_canvas" />
+
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content">
+
+                <Button
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Save"
+                    android:id="@+id/button_swissknife_save"
+                    android:layout_weight="0.3"/>
+
+                <Button
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Undo"
+                    android:id="@+id/button_swissknife_undo"
+                    android:layout_weight="0.3" />
+
+                <Button
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Back"
+                    android:id="@+id/button_swissknife_back"
+                    android:layout_weight="0.3" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <GridView
+            android:layout_width="50dip"
+            android:layout_height="match_parent"
+            android:numColumns="1"
+            android:id="@+id/gridview_swissknife_tools" />
+
+    </LinearLayout>
 </RelativeLayout>

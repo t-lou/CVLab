@@ -18,4 +18,13 @@ package com.casuals.tlou.cvlab.imgproc;
  *
  */
 public class Filter {
+    private String[] available_filters = {"gaussian"};
+
+
+    public Filter() {
+    }
+
+    public String[] getFilterNames () {
+        return this.available_filters;
+    }
 }

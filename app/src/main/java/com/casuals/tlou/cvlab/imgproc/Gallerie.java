@@ -5,14 +5,19 @@ import com.casuals.tlou.cvlab.main;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.GridView;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.io.File;
@@ -39,6 +44,46 @@ import java.util.ArrayList;
 
 public class Gallerie extends Activity implements View.OnClickListener {
 
+    private class GridViewAdapter extends ArrayAdapter {
+        private class ViewHolder {
+            TextView text;
+            ImageView image;
+        }
+
+        private Context context;
+        private int resource;
+        private ArrayList data;
+
+        public GridViewAdapter(Context context, int resource, ArrayList data) {
+            super(context, resource, data);
+            this.context = context;
+            this.resource = resource;
+            this.data = data;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            View row = convertView;
+            ViewHolder holder = null;
+
+            if (row == null) {
+                LayoutInflater inflater = ((Activity) context).getLayoutInflater();
+                row = inflater.inflate(this.resource, parent, false);
+                holder = new ViewHolder();
+                holder.text = (TextView)row.findViewById(R.id.gallerie_item_text);
+                holder.image = (ImageView)row.findViewById(R.id.gallerie_item_image);
+                row.setTag(holder);
+            } else {
+                holder = (ViewHolder)row.getTag();
+            }
+
+            GallerieItem item = (GallerieItem)data.get(position);
+            holder.text.setText(item.getName());
+            holder.image.setImageBitmap(item.getSymbol());
+            return row;
+        }
+    }
+
     private GridView gridview_items;
     private GridViewAdapter gridview_items_adapter;
 
@@ -55,7 +100,7 @@ public class Gallerie extends Activity implements View.OnClickListener {
     private Bitmap icon_dir;
 
     private ArrayList<GallerieItem> getData() {
-        final ArrayList<GallerieItem> imageItems = new ArrayList<>();
+        final ArrayList<GallerieItem> image_items = new ArrayList<>();
         Bitmap.Config conf = Bitmap.Config.ARGB_8888;
         Bitmap bitmap;
         File file;
@@ -63,7 +108,7 @@ public class Gallerie extends Activity implements View.OnClickListener {
 
         if(this.current_dir.length() > 0 && this.entries != null) {
             bitmap = this.icon_dir.copy(conf, true);
-            imageItems.add(new GallerieItem(bitmap, ".."));
+            image_items.add(new GallerieItem(bitmap, ".."));
 
             for (String str : this.entries) {
                 file = new File(this.current_dir + "/" + str);
@@ -91,10 +136,10 @@ public class Gallerie extends Activity implements View.OnClickListener {
                         bitmap = this.icon_file.copy(conf, true);
                     }
                 }
-                imageItems.add(new GallerieItem(bitmap, str));
+                image_items.add(new GallerieItem(bitmap, str));
             }
         }
-        return imageItems;
+        return image_items;
     }
 
     private boolean openDir(String name) {
