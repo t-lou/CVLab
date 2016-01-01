@@ -6,12 +6,12 @@ This app aims at building an environment for computer vision. Starting with a si
 
 If you are interested and bring skills about Android and/or Computer Vision, feel free to contact me tongxi.lou@tum.de. I am a student at Technical University of Munich and a starter at Android Development. It is totally possible that this App would be useful in the future and play a role in academy or industrie. 
 
-Accomplished
+Accomplished 
     Basic Camera
     
-Next
-    gallery
-    all kinds of filters, histogram equalisation, thresholding
-    a convenient gui for above operations
-    camera calibration
-    feature extration
+Next 
+    1. gallery
+    2. all kinds of filters, histogram equalisation, thresholding
+    3. a convenient gui for above operations
+    4 .camera calibration
+    5. feature extration
