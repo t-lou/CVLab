@@ -21,7 +21,6 @@ import android.media.ImageReader;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Size;
 import android.util.SparseIntArray;

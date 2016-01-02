@@ -10,6 +10,7 @@ import android.widget.Button;
 import java.io.File;
 
 import com.casuals.tlou.cvlab.camera.Camera;
+import com.casuals.tlou.cvlab.imgproc.Gallerie;
 
 /*
  * Copyright 2016 Tongxi Lou
@@ -30,6 +31,7 @@ import com.casuals.tlou.cvlab.camera.Camera;
 public class main extends Activity implements View.OnClickListener {
 
     private Button button_camera;
+    private Button button_swissknife;
 
     private void prepDir() {
         File folder = new File(Environment.getExternalStorageDirectory()
@@ -52,7 +54,10 @@ public class main extends Activity implements View.OnClickListener {
         this.prepDir();
 
         this.button_camera = (Button)findViewById(R.id.button_camera);
+        this.button_swissknife = (Button)findViewById(R.id.button_swissknife);
+
         this.button_camera.setOnClickListener(this);
+        this.button_swissknife.setOnClickListener(this);
     }
 
     @Override
@@ -64,6 +69,10 @@ public class main extends Activity implements View.OnClickListener {
                 startActivity(in);
                 break;
 
+            case R.id.button_swissknife:
+                in = new Intent(this, Gallerie.class);
+                startActivity(in);
+                break;
         }
     }
 }
