@@ -32,14 +32,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text=""
-            android:id="@+id/gallerie_textview_current_dir" />
+            android:id="@+id/textview_gallerie_current_dir" />
 
         <GridView
             android:layout_width="wrap_content"
             android:layout_height="0dp"
             android:layout_weight="1.0"
             android:numColumns="3"
-            android:id="@+id/gallerie_gridview" />
+            android:id="@+id/gridview_gallerie" />
 
         <LinearLayout
             android:orientation="horizontal"

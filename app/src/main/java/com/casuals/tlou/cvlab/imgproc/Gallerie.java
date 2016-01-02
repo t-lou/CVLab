@@ -15,8 +15,6 @@ import android.widget.Button;
 import android.widget.GridView;
 import android.widget.TextView;
 
-import junit.framework.TestCase;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -63,16 +61,21 @@ public class Gallerie extends Activity implements View.OnClickListener {
         File file;
         String suffix;
 
-        if(this.current_dir.length() > 0) {
-            bitmap = this.icon_dir.copy(conf, false);
+        if(this.current_dir.length() > 0 && this.entries != null) {
+            bitmap = this.icon_dir.copy(conf, true);
             imageItems.add(new GallerieItem(bitmap, ".."));
+
             for (String str : this.entries) {
                 file = new File(this.current_dir + "/" + str);
+                if(!file.exists()) {
+                    continue;
+                }
+
                 if(file.isDirectory()) {
-                    bitmap = this.icon_dir.copy(conf, false);
+                    bitmap = this.icon_dir.copy(conf, true);
                 }
                 else if(str.indexOf('.') < 0) {
-                    bitmap = this.icon_file.copy(conf, false);
+                    bitmap = this.icon_file.copy(conf, true);
                 }
                 else {
                     suffix = str.substring(str.lastIndexOf('.')).toLowerCase();
@@ -82,10 +85,10 @@ public class Gallerie extends Activity implements View.OnClickListener {
                             || suffix.compareTo(".dng") == 0
                             || suffix.compareTo(".tiff") == 0) {
                         bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
-                        bitmap = bitmap.copy(conf, false);
+                        bitmap = bitmap.copy(conf, true);
                     }
                     else {
-                        bitmap = this.icon_file.copy(conf, false);
+                        bitmap = this.icon_file.copy(conf, true);
                     }
                 }
                 imageItems.add(new GallerieItem(bitmap, str));
@@ -97,19 +100,29 @@ public class Gallerie extends Activity implements View.OnClickListener {
     private boolean openDir(String name) {
         File file = new File(name);
         boolean result = false;
-        if(file.isDirectory()) {
+        if(file.exists()) {
+            if(file.isDirectory()) {
+                result = true;
+            }
+            else {
+                result = false;
+            }
+        }
+        else {
+            result = false;
+        }
+
+        if(result) {
             try {
                 this.current_dir = file.getCanonicalPath();
             } catch (IOException e) {
                 this.current_dir = file.getAbsolutePath();
             }
             this.entries = file.list();
-            result = true;
         }
         else {
             this.current_dir = "";
-            this.entries = new String[0];
-            result = true;
+            this.entries = null;
         }
         this.textview_current_dir.setText(this.current_dir);
         return result;
@@ -173,16 +186,16 @@ public class Gallerie extends Activity implements View.OnClickListener {
         this.button_set_dir_internal.setOnClickListener(this);
         this.button_set_dir_back.setOnClickListener(this);
 
-        this.textview_current_dir = (TextView)findViewById(R.id.gallerie_textview_current_dir);
+        this.textview_current_dir = (TextView)findViewById(R.id.textview_gallerie_current_dir);
 
         this.openDir(System.getenv("EXTERNAL_STORAGE"));
         Bitmap.Config conf = Bitmap.Config.ARGB_8888;
         this.icon_dir = BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_dir_icon);
-        this.icon_dir = this.icon_dir.copy(conf, false);
+        this.icon_dir = this.icon_dir.copy(conf, true);
         this.icon_file = BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_file_icon);
-        this.icon_file = this.icon_file.copy(conf, false);
+        this.icon_file = this.icon_file.copy(conf, true);
 
-        this.gridview_items = (GridView)findViewById(R.id.gallerie_gridview);
+        this.gridview_items = (GridView)findViewById(R.id.gridview_gallerie);
         this.updateView();
         this.gridview_items.setOnItemClickListener(
                 new AdapterView.OnItemClickListener() {
@@ -205,14 +218,18 @@ public class Gallerie extends Activity implements View.OnClickListener {
                 break;
 
             case R.id.button_gallery_internal:
-                if(!this.openDir(System.getenv("EXTERNAL_STORAGE"))) {
-                    this.alert("Internal storage not found");
+                if(this.current_dir.compareTo(System.getenv("EXTERNAL_STORAGE")) != 0) {
+                    if (!this.openDir(System.getenv("EXTERNAL_STORAGE"))) {
+                        this.alert("Internal storage not found");
+                    }
                 }
                 break;
 
             case R.id.button_gallery_sdcard:
-                if(!this.openDir(System.getenv("SECONDARY_STORAGE"))) {
-                    this.alert("SD card storage not found");
+                if(this.current_dir.compareTo(System.getenv("SECONDARY_STORAGE")) != 0) {
+                    if (!this.openDir(System.getenv("SECONDARY_STORAGE"))) {
+                        this.alert("SD card storage not found");
+                    }
                 }
                 break;
 
