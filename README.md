@@ -11,10 +11,10 @@ Minimal SDK: Android 5.0, API level 21
 
 Accomplished 
     1. basic camera
+    2. gallery
     
 Next 
-    1. gallery
-    2. all kinds of filters, histogram equalisation, thresholding
-    3. a convenient gui for above operations
-    4 .camera calibration
-    5. feature extration
+    1. all kinds of filters, histogram equalisation, thresholding, at best with opengl or opencl
+    2. a convenient gui for above operations
+    3 .camera calibration
+    4. feature extration
