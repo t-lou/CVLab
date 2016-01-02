@@ -13,8 +13,12 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.GridView;
+import android.widget.TextView;
+
+import junit.framework.TestCase;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 
 /*
@@ -39,15 +43,18 @@ public class Gallerie extends Activity implements View.OnClickListener {
 
     private GridView gridview_items;
     private GridViewAdapter gridview_items_adapter;
-    private String current_dir;
-    private String[] entries;
-    private Bitmap icon_file;
-    private Bitmap icon_dir;
 
     private Button button_set_dir_home;
     private Button button_set_dir_sdcard;
     private Button button_set_dir_internal;
     private Button button_set_dir_back;
+
+    private TextView textview_current_dir;
+
+    private String current_dir;
+    private String[] entries;
+    private Bitmap icon_file;
+    private Bitmap icon_dir;
 
     private ArrayList<GallerieItem> getData() {
         final ArrayList<GallerieItem> imageItems = new ArrayList<>();
@@ -89,16 +96,23 @@ public class Gallerie extends Activity implements View.OnClickListener {
 
     private boolean openDir(String name) {
         File file = new File(name);
+        boolean result = false;
         if(file.isDirectory()) {
-            this.current_dir = name;
+            try {
+                this.current_dir = file.getCanonicalPath();
+            } catch (IOException e) {
+                this.current_dir = file.getAbsolutePath();
+            }
             this.entries = file.list();
-            return true;
+            result = true;
         }
         else {
             this.current_dir = "";
             this.entries = new String[0];
-            return false;
+            result = true;
         }
+        this.textview_current_dir.setText(this.current_dir);
+        return result;
     }
 
     private void alert(String message) {
@@ -159,9 +173,15 @@ public class Gallerie extends Activity implements View.OnClickListener {
         this.button_set_dir_internal.setOnClickListener(this);
         this.button_set_dir_back.setOnClickListener(this);
 
+        this.textview_current_dir = (TextView)findViewById(R.id.gallerie_textview_current_dir);
+
         this.openDir(System.getenv("EXTERNAL_STORAGE"));
+        Bitmap.Config conf = Bitmap.Config.ARGB_8888;
         this.icon_dir = BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_dir_icon);
+        this.icon_dir = this.icon_dir.copy(conf, false);
         this.icon_file = BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_file_icon);
+        this.icon_file = this.icon_file.copy(conf, false);
+
         this.gridview_items = (GridView)findViewById(R.id.gallerie_gridview);
         this.updateView();
         this.gridview_items.setOnItemClickListener(
