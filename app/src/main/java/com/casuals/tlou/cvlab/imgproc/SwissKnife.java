@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.ThumbnailUtils;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -107,23 +108,59 @@ public class SwissKnife extends Activity implements View.OnClickListener {
     }
 
     private void selectTool(int i) {
+        // get name of tool
         GallerieItem item = (GallerieItem)gridview_tools.getItemAtPosition(i);
         String name = item.getName();
+        // for display
+        float ratio_width, ratio_height;
+        int display_width, display_height;
+        // possible parameters for tools
+        int radius = 20, id_channel_colorful = -1;
+        float sigma_gaussian = 1.0f;
 
         // reset the image
         this.image_last = this.image.copy(this.image.getConfig(), true);
         this.image = null;
         this.image_rendered = null;
         this.imageview_canvas.setImageBitmap(null);
+        this.debug.setText(name);
         switch (name) {
             case "rgb_to_bw":
                 this.filter.doRGB2BW();
                 this.if_colorful = false;
                 break;
+            case "gaussian":
+                // if colorful then choose channel, now do to all
+                this.filter.doGaussian(radius, id_channel_colorful, sigma_gaussian);
+                break;
+            case "mean":
+                // if colorful then choose channel, now do to all
+                this.filter.doMean(radius, id_channel_colorful);
+                break;
+            default:
+                this.debug.setText("ERROR");
         }
+        this.debug.append(" finished");
+
+        this.if_saved = false;
 
         this.image = this.filter.getCurrent().copy(this.filter.getCurrent().getConfig(), true);
-        this.imageview_canvas.setImageBitmap(this.filter.getCurrent());
+        // here display the whole image, modify if part of image would be focused(zoom in)
+        // then the target would be this.image_rendered
+        ratio_width = (float)this.imageview_canvas.getWidth() / (float)this.image.getWidth();
+        ratio_height = (float)this.imageview_canvas.getHeight() / (float)this.image.getHeight();
+        if(ratio_width < ratio_height) {
+            display_width = this.imageview_canvas.getWidth();
+            display_height = this.image.getHeight() * this.imageview_canvas.getWidth()
+                    / this.image.getWidth();
+        }
+        else {
+            display_height = this.imageview_canvas.getHeight();
+            display_width = this.image.getWidth() * this.imageview_canvas.getHeight()
+                    / this.image.getHeight();
+        }
+        this.imageview_canvas.setImageBitmap(
+                ThumbnailUtils.extractThumbnail(this.image, display_width, display_height));
     }
 
     private TextView debug;
@@ -201,9 +238,8 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                             e.printStackTrace();
                         }
                     }
-
-
                 }
+                this.if_saved = true;
                 break;
 
             case R.id.button_swissknife_back:

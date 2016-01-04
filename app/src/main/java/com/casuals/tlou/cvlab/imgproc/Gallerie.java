@@ -235,7 +235,6 @@ public class Gallerie extends Activity implements View.OnClickListener {
         this.textview_current_dir = (TextView)findViewById(R.id.textview_gallerie_current_dir);
 
         this.openDir(System.getenv("EXTERNAL_STORAGE"));
-        Bitmap.Config conf = Bitmap.Config.ARGB_8888;
         this.icon_dir = ThumbnailUtils.extractThumbnail(
                 BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_dir_icon), 100, 100);
         this.icon_file = ThumbnailUtils.extractThumbnail(

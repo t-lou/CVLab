@@ -3,7 +3,9 @@ package com.casuals.tlou.cvlab.imgproc;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.renderscript.Allocation;
+import android.renderscript.Element;
 import android.renderscript.RenderScript;
+import android.util.FloatMath;
 
 /*
  *
@@ -23,7 +25,7 @@ import android.renderscript.RenderScript;
  *
  */
 public class Filter {
-    private String[] available_filters = {"rgb_to_bw", "gaussian"};
+    private String[] available_filters = {"rgb_to_bw", "gaussian", "mean"};
 
     private RenderScript render_script;
     private ScriptC_imgproc script;
@@ -55,11 +57,30 @@ public class Filter {
         this.if_colorful = false;
     }
 
-    public void doGaussian() {
-        if(this.if_colorful) {
-            this.script.forEach_rgb_to_bw(this.allocation_in, this.allocation_out);
-        }
-        this.if_colorful = false;
+    public void doGaussian(int radius, int idChannel, float sigma) {
+        float[] mask = this.createGaussianMask(radius, sigma);
+        Allocation allocation_mask = Allocation.createSized(this.render_script,
+                Element.F32(this.render_script), mask.length);
+        allocation_mask.copyFrom(mask);
+
+        this.script.set_mask(allocation_mask);
+        this.script.set_context(this.allocation_in);
+        this.script.set_height(this.data.getHeight());
+        this.script.set_width(this.data.getWidth());
+        this.script.set_if_bw(!this.if_colorful);
+        this.script.set_index_channel(idChannel);
+        this.script.set_radius(radius);
+        this.script.forEach_gaussian(this.allocation_in, this.allocation_out);
+    }
+
+    public void doMean(int radius, int idChannel) {
+        this.script.set_context(this.allocation_in);
+        this.script.set_height(this.data.getHeight());
+        this.script.set_width(this.data.getWidth());
+        this.script.set_if_bw(!this.if_colorful);
+        this.script.set_index_channel(idChannel);
+        this.script.set_radius(radius);
+        this.script.forEach_mean(this.allocation_in, this.allocation_out);
     }
 
     //public void getOutput() {
@@ -72,5 +93,25 @@ public class Filter {
 
     public String[] getFilterNames () {
         return this.available_filters;
+    }
+
+    private float[] createGaussianMask(int radius, float sigma) {
+        int length = 2 * radius + 1, index = 0;
+        float[] mask = new float[length * length];
+        float sum = 0.0f;
+
+        for(int i = -radius; i <= radius; i++) {
+            for(int j = -radius; j <= radius; j++) {
+                mask[index] = (float)Math.exp(-(double)((float) (i * i) + (float) (j * j)) / (2.0f * sigma * sigma));
+                sum += mask[index];
+                index++;
+            }
+        }
+
+        for(int i = 0; i < length * length; i++) {
+            mask[i] /= sum;
+        }
+
+        return mask;
     }
 }
