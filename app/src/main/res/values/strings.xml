@@ -22,4 +22,5 @@
 
     <string name="home_dir">/cvlab</string>
     <string name="img_dir">/cvlab/warehouse</string>
+    <string name="cache_dir">/cvlab/cache</string>
 </resources>

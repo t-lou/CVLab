@@ -44,6 +44,11 @@ public class main extends Activity implements View.OnClickListener {
         if(!folder.exists()) {
             folder.mkdir();
         }
+        folder = new File(Environment.getExternalStorageDirectory()
+                + getString(R.string.cache_dir));
+        if(!folder.exists()) {
+            folder.mkdir();
+        }
     }
 
     @Override

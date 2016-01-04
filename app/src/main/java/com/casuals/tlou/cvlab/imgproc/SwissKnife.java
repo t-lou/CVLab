@@ -7,6 +7,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.ThumbnailUtils;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -86,16 +87,17 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
     private Bitmap image;
     private Bitmap image_rendered;
-    private Bitmap image_last;
     private String name;
+    private File file_origin;
+    private File file_last_image;
     private boolean if_saved;
     private boolean if_colorful;
+    private boolean if_need_display;
 
     private Filter filter;
 
     private ArrayList<GallerieItem> getToolItems() {
         final ArrayList<GallerieItem> imageItems = new ArrayList<>();
-        Bitmap.Config conf = Bitmap.Config.ARGB_8888;
         if(this.filter != null) {
             for (String str : this.filter.getFilterNames()) {
                 int imageResource = getResources().getIdentifier("swissknife_tool_" + str, "drawable", getPackageName());
@@ -107,19 +109,36 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         return imageItems;
     }
 
+    private void displayImage() {
+        float ratio_width, ratio_height;
+        int display_width, display_height;
+        // here display the whole image, modify if part of image would be focused(zoom in)
+        // then the target would be this.image_rendered
+        ratio_width = (float)this.imageview_canvas.getWidth() / (float)this.image.getWidth();
+        ratio_height = (float)this.imageview_canvas.getHeight() / (float)this.image.getHeight();
+        if(ratio_width < ratio_height) {
+            display_width = this.imageview_canvas.getWidth();
+            display_height = this.image.getHeight() * this.imageview_canvas.getWidth()
+                    / this.image.getWidth();
+        }
+        else {
+            display_height = this.imageview_canvas.getHeight();
+            display_width = this.image.getWidth() * this.imageview_canvas.getHeight()
+                    / this.image.getHeight();
+        }
+        this.imageview_canvas.setImageBitmap(
+                ThumbnailUtils.extractThumbnail(this.image, display_width, display_height));
+    }
+
     private void selectTool(int i) {
         // get name of tool
         GallerieItem item = (GallerieItem)gridview_tools.getItemAtPosition(i);
         String name = item.getName();
-        // for display
-        float ratio_width, ratio_height;
-        int display_width, display_height;
         // possible parameters for tools
         int radius = 5, id_channel_colorful = -1;
         float sigma_gaussian = 1.0f;
 
         // reset the image
-        this.image_last = this.image.copy(this.image.getConfig(), true);
         this.image = null;
         this.image_rendered = null;
         this.imageview_canvas.setImageBitmap(null);
@@ -147,22 +166,24 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         this.if_saved = false;
 
         this.image = this.filter.getCurrent().copy(this.filter.getCurrent().getConfig(), true);
-        // here display the whole image, modify if part of image would be focused(zoom in)
-        // then the target would be this.image_rendered
-        ratio_width = (float)this.imageview_canvas.getWidth() / (float)this.image.getWidth();
-        ratio_height = (float)this.imageview_canvas.getHeight() / (float)this.image.getHeight();
-        if(ratio_width < ratio_height) {
-            display_width = this.imageview_canvas.getWidth();
-            display_height = this.image.getHeight() * this.imageview_canvas.getWidth()
-                    / this.image.getWidth();
+        this.displayImage();
+    }
+
+    private void saveImage(Bitmap image, File file) {
+        FileOutputStream output = null;
+        try {
+            file.delete();
+            output = new FileOutputStream(file);
+            image.compress(Bitmap.CompressFormat.PNG, 100, output);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                output.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
-        else {
-            display_height = this.imageview_canvas.getHeight();
-            display_width = this.image.getWidth() * this.imageview_canvas.getHeight()
-                    / this.image.getHeight();
-        }
-        this.imageview_canvas.setImageBitmap(
-                ThumbnailUtils.extractThumbnail(this.image, display_width, display_height));
     }
 
     private TextView debug;
@@ -200,15 +221,29 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         );
 
         this.name = getIntent().getExtras().getString("path");
-        this.image = BitmapFactory.decodeFile(new File(this.name).getAbsolutePath());
-        this.image_rendered = this.image.copy(this.image.getConfig(), true);
-        this.image_last = null;
-        this.imageview_canvas.setImageBitmap(this.image_rendered);
+        this.file_origin = new File(this.name);
+        this.image = BitmapFactory.decodeFile(this.name);
+        this.image_rendered = null;
 
         this.filter.setData(this.image);
 
         this.if_saved = true;
         this.if_colorful = true;
+        this.if_need_display = true;
+
+        this.file_last_image = Environment.getExternalStoragePublicDirectory(
+                getString(R.string.cache_dir) + "/last.png");
+        this.saveImage(this.image, this.file_last_image);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+
+        if(this.if_need_display) {
+            this.displayImage();
+            this.if_need_display = false;
+        }
     }
 
     @Override
@@ -216,30 +251,14 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         Intent in;
         switch(v.getId()) {
             case R.id.button_swissknife_undo:
-                this.image = this.image_last.copy(this.image_last.getConfig(), true);
-                this.image_last = null;
-                this.imageview_canvas.setImageBitmap(this.image);
+                this.image = BitmapFactory.decodeFile(this.file_last_image.getAbsolutePath());
+                this.displayImage();
                 this.filter.setData(this.image);
                 break;
 
             case R.id.button_swissknife_save:
-                if(this.image_last != null && this.filter != null) {
-                    FileOutputStream output = null;
-                    this.debug.setText(this.name);
-                    try {
-                        File file = new File(this.name);
-                        file.delete();
-                        output = new FileOutputStream(this.name);
-                        this.filter.getCurrent().compress(Bitmap.CompressFormat.PNG, 100, output);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    } finally {
-                        try {
-                            output.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
+                if(this.image != null && this.filter != null) {
+                    this.saveImage(this.image, this.file_origin);
                 }
                 this.if_saved = true;
                 break;
