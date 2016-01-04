@@ -25,7 +25,7 @@
 
 uchar4 __attribute__((kernel)) rgb_to_bw(uchar4 in) {
     float4 f4 = rsUnpackColor8888(in);
-    float value = 0.2126f * f4.y + 0.7152f * f4.z + 0.0722f * f4.w;
+    float value = 0.2126f * f4.x + 0.7152f * f4.y + 0.0722f * f4.z;
     f4.xyz = value;
     f4.w = 1.0f;
     return rsPackColorTo8888(f4);
