@@ -104,8 +104,10 @@ public class Gallerie extends Activity implements View.OnClickListener {
         final ArrayList<GallerieItem> image_items = new ArrayList<>();
         Bitmap.Config conf = Bitmap.Config.ARGB_8888;
         Bitmap bitmap;
+        BitmapFactory.Options options = new BitmapFactory.Options();
         File file;
         String suffix;
+        int file_width, file_height;
 
         if(this.current_dir.length() > 0 && this.entries != null) {
             bitmap = this.icon_dir.copy(conf, true);
@@ -130,8 +132,22 @@ public class Gallerie extends Activity implements View.OnClickListener {
                             || suffix.compareTo(".jpg") == 0
                             || suffix.compareTo(".dng") == 0
                             || suffix.compareTo(".tiff") == 0) {
+                        // get the width and height and try to open downsampled image
+                        options.inSampleSize = 1;
+                        options.inJustDecodeBounds = true;
+                        BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+
+                        file_width = options.outWidth;
+                        file_height = options.outHeight;
+                        while(file_height / 2 > 100 && file_width / 2 > 100) {
+                            options.inSampleSize++;
+                            file_height /= 2;
+                            file_width /= 2;
+                        }
+
+                        options.inJustDecodeBounds = false;
                         bitmap = ThumbnailUtils.extractThumbnail(
-                                BitmapFactory.decodeFile(file.getAbsolutePath()), 100, 100);
+                                BitmapFactory.decodeFile(file.getAbsolutePath(), options), 100, 100);
                     }
                     else {
                         bitmap = this.icon_file.copy(conf, true);
