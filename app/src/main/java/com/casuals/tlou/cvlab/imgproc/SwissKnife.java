@@ -9,15 +9,19 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.GridView;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.casuals.tlou.cvlab.R;
 import com.casuals.tlou.cvlab.main;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 
 /*
@@ -81,8 +85,10 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
     private Bitmap image;
     private Bitmap image_rendered;
-    private boolean if_saved;
+    private Bitmap image_last;
     private String name;
+    private boolean if_saved;
+    private boolean if_colorful;
 
     private Filter filter;
 
@@ -100,10 +106,33 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         return imageItems;
     }
 
+    private void selectTool(int i) {
+        GallerieItem item = (GallerieItem)gridview_tools.getItemAtPosition(i);
+        String name = item.getName();
+
+        // reset the image
+        this.image_last = this.image.copy(this.image.getConfig(), true);
+        this.image = null;
+        this.image_rendered = null;
+        this.imageview_canvas.setImageBitmap(null);
+        switch (name) {
+            case "rgb_to_bw":
+                this.filter.doRGB2BW();
+                this.if_colorful = false;
+                break;
+        }
+
+        this.image = this.filter.getCurrent().copy(this.filter.getCurrent().getConfig(), true);
+        this.imageview_canvas.setImageBitmap(this.filter.getCurrent());
+    }
+
+    private TextView debug;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_swissknife);
+
+        this.debug = (TextView)findViewById(R.id.textView);
 
         this.imageview_canvas = (ImageView)findViewById(R.id.swissknife_imageview_canvas);
 
@@ -115,19 +144,32 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         this.button_save.setOnClickListener(this);
         this.button_undo.setOnClickListener(this);
 
-        this.filter = new Filter();
-        // TODO gridview from list of tools
+        this.filter = new Filter(this);
+
         this.gridview_tools = (GridView)findViewById(R.id.gridview_swissknife_tools);
         this.gridview_tools_adapter = new GridViewAdapter(this, R.layout.swissknife_tool_item,
                 this.getToolItems());
         this.gridview_tools.setAdapter(this.gridview_tools_adapter);
 
+        this.gridview_tools.setOnItemClickListener(
+                new AdapterView.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(AdapterView<?> gridview, View v, int i, long l) {
+                        selectTool(i);
+                    }
+                }
+        );
+
         this.name = getIntent().getExtras().getString("path");
         this.image = BitmapFactory.decodeFile(new File(this.name).getAbsolutePath());
         this.image_rendered = this.image.copy(this.image.getConfig(), true);
+        this.image_last = null;
         this.imageview_canvas.setImageBitmap(this.image_rendered);
 
+        this.filter.setData(this.image);
+
         this.if_saved = true;
+        this.if_colorful = true;
     }
 
     @Override
@@ -135,9 +177,33 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         Intent in;
         switch(v.getId()) {
             case R.id.button_swissknife_undo:
+                this.image = this.image_last.copy(this.image_last.getConfig(), true);
+                this.image_last = null;
+                this.imageview_canvas.setImageBitmap(this.image);
+                this.filter.setData(this.image);
                 break;
 
             case R.id.button_swissknife_save:
+                if(this.image_last != null && this.filter != null) {
+                    FileOutputStream output = null;
+                    this.debug.setText(this.name);
+                    try {
+                        File file = new File(this.name);
+                        file.delete();
+                        output = new FileOutputStream(this.name);
+                        this.filter.getCurrent().compress(Bitmap.CompressFormat.PNG, 100, output);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    } finally {
+                        try {
+                            output.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+
+                }
                 break;
 
             case R.id.button_swissknife_back:
