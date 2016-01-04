@@ -5,7 +5,8 @@ import android.graphics.Bitmap;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
-import android.util.FloatMath;
+
+import java.util.concurrent.locks.ReentrantLock;
 
 /*
  *
@@ -30,11 +31,14 @@ public class Filter {
     private RenderScript render_script;
     private ScriptC_imgproc script;
     private Bitmap data;
+    private Bitmap data_out;
 
     private Allocation allocation_in;
     private Allocation allocation_out;
 
     private boolean if_colorful;
+
+    private final ReentrantLock lock = new ReentrantLock();
 
     public Filter(Context context) {
         this.render_script = RenderScript.create(context);
@@ -45,16 +49,22 @@ public class Filter {
 
     public void setData(Bitmap source) {
         this.data = source.copy(source.getConfig(), true);
+        this.data_out = source.copy(source.getConfig(), true);
 
         this.allocation_in = Allocation.createFromBitmap(this.render_script, this.data);
-        this.allocation_out = Allocation.createFromBitmap(this.render_script, this.data);
+        this.allocation_out = Allocation.createFromBitmap(this.render_script, this.data_out);
     }
 
     public void doRGB2BW() {
+        this.lock.lock();
+
         if(this.if_colorful) {
             this.script.forEach_rgb_to_bw(this.allocation_in, this.allocation_out);
+            this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
         }
         this.if_colorful = false;
+
+        this.lock.unlock();
     }
 
     public void doGaussian(int radius, int idChannel, float sigma) {
@@ -62,6 +72,8 @@ public class Filter {
         Allocation allocation_mask = Allocation.createSized(this.render_script,
                 Element.F32(this.render_script), mask.length);
         allocation_mask.copyFrom(mask);
+
+        this.lock.lock();
 
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocation_in);
@@ -71,9 +83,14 @@ public class Filter {
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
         this.script.forEach_gaussian(this.allocation_in, this.allocation_out);
+        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+
+        this.lock.unlock();
     }
 
     public void doMean(int radius, int idChannel) {
+        this.lock.lock();
+
         this.script.set_context(this.allocation_in);
         this.script.set_height(this.data.getHeight());
         this.script.set_width(this.data.getWidth());
@@ -81,6 +98,9 @@ public class Filter {
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
         this.script.forEach_mean(this.allocation_in, this.allocation_out);
+        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+
+        this.lock.unlock();
     }
 
     //public void getOutput() {
@@ -88,7 +108,8 @@ public class Filter {
     //}
 
     public Bitmap getCurrent() {
-        return this.data;
+        this.allocation_out.copyTo(this.data_out);
+        return this.data_out;
     }
 
     public String[] getFilterNames () {
@@ -113,5 +134,10 @@ public class Filter {
         }
 
         return mask;
+    }
+
+    public void waitTillEnd() {
+        this.lock.lock();
+        this.lock.unlock();
     }
 }

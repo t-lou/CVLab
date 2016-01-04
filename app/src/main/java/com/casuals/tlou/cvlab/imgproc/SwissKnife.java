@@ -115,7 +115,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         float ratio_width, ratio_height;
         int display_width, display_height;
         // possible parameters for tools
-        int radius = 20, id_channel_colorful = -1;
+        int radius = 5, id_channel_colorful = -1;
         float sigma_gaussian = 1.0f;
 
         // reset the image
@@ -124,6 +124,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         this.image_rendered = null;
         this.imageview_canvas.setImageBitmap(null);
         this.debug.setText(name);
+
         switch (name) {
             case "rgb_to_bw":
                 this.filter.doRGB2BW();
@@ -140,6 +141,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             default:
                 this.debug.setText("ERROR");
         }
+        this.filter.waitTillEnd();
         this.debug.append(" finished");
 
         this.if_saved = false;

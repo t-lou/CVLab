@@ -27,6 +27,10 @@ int index_channel;
 int width, height;
 int radius;
 
+uchar4 __attribute__((kernel)) out_to_in(uchar4 in) {
+    return in;
+}
+
 uchar4 __attribute__((kernel)) rgb_to_bw(uchar4 in) {
     float4 f4 = rsUnpackColor8888(in);
     float value = 0.2126f * f4.x + 0.7152f * f4.y + 0.0722f * f4.z;
