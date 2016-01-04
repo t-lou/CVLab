@@ -149,9 +149,23 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 this.filter.doRGB2BW();
                 this.if_colorful = false;
                 break;
+            case "rescale":
+                this.filter.doRescale(2.0f, id_channel_colorful);
+                break;
+            case "up_pyramid":
+                this.filter.doUpPyramid();
+                break;
             case "gaussian":
                 // if colorful then choose channel, now do to all
                 this.filter.doGaussian(radius, id_channel_colorful, sigma_gaussian);
+                break;
+            case "laplacian":
+                // if colorful then choose channel, now do to all
+                this.filter.doLaplacian(id_channel_colorful, 2.0f);
+                break;
+            case "gaussian_laplacian":
+                // if colorful then choose channel, now do to all
+                this.filter.doGaussianLaplacian(radius, id_channel_colorful, sigma_gaussian, 2.0f);
                 break;
             case "mean":
                 // if colorful then choose channel, now do to all

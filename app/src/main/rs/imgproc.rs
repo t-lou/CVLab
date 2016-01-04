@@ -26,6 +26,7 @@ bool if_bw;
 int index_channel;
 int width, height;
 int radius;
+float scale;
 
 uchar4 __attribute__((kernel)) out_to_in(uchar4 in) {
     return in;
@@ -36,6 +37,26 @@ uchar4 __attribute__((kernel)) rgb_to_bw(uchar4 in) {
     float value = 0.2126f * f4.x + 0.7152f * f4.y + 0.0722f * f4.z;
     f4.xyz = value;
     f4.w = 1.0f;
+    return rsPackColorTo8888(f4);
+}
+
+uchar4 __attribute__((kernel)) up_pyramid(uchar4 in, uint32_t x, uint32_t y) {
+    uchar4 out = (uchar4)(0, 0, 0, 0);
+    out += rsGetElementAt_uchar4(context, x * 2, y * 2) / 4;
+    out += rsGetElementAt_uchar4(context, x * 2 + 1, y * 2) / 4;
+    out += rsGetElementAt_uchar4(context, x * 2, y * 2 + 1) / 4;
+    out += rsGetElementAt_uchar4(context, x * 2 + 1, y * 2 + 1) / 4;
+    return out;
+}
+
+uchar4 __attribute__((kernel)) rescale(uchar4 in) {
+    float4 f4 = rsUnpackColor8888(in);
+    if(if_bw || index_channel < 0 || index_channel >= 4) {
+        f4 *= scale;
+    }
+    else {
+        f4[index_channel] *= scale;
+    }
     return rsPackColorTo8888(f4);
 }
 
@@ -52,6 +73,10 @@ uchar4 __attribute__((kernel)) gaussian(uchar4 in, uint32_t x, uint32_t y) {
             index++;
         }
     }
+    out.x = fabs(out.x);
+    out.y = fabs(out.y);
+    out.z = fabs(out.z);
+    out.w = fabs(out.w);
     if(if_bw || index_channel < 0 || index_channel >= 4) {
         return rsPackColorTo8888(out);
     }
