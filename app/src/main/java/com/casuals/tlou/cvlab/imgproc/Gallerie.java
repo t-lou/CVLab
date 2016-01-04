@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.ThumbnailUtils;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -129,8 +130,8 @@ public class Gallerie extends Activity implements View.OnClickListener {
                             || suffix.compareTo(".jpg") == 0
                             || suffix.compareTo(".dng") == 0
                             || suffix.compareTo(".tiff") == 0) {
-                        bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
-                        bitmap = bitmap.copy(conf, true);
+                        bitmap = ThumbnailUtils.extractThumbnail(
+                                BitmapFactory.decodeFile(file.getAbsolutePath()), 100, 100);
                     }
                     else {
                         bitmap = this.icon_file.copy(conf, true);
@@ -235,10 +236,10 @@ public class Gallerie extends Activity implements View.OnClickListener {
 
         this.openDir(System.getenv("EXTERNAL_STORAGE"));
         Bitmap.Config conf = Bitmap.Config.ARGB_8888;
-        this.icon_dir = BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_dir_icon);
-        this.icon_dir = this.icon_dir.copy(conf, true);
-        this.icon_file = BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_file_icon);
-        this.icon_file = this.icon_file.copy(conf, true);
+        this.icon_dir = ThumbnailUtils.extractThumbnail(
+                BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_dir_icon), 100, 100);
+        this.icon_file = ThumbnailUtils.extractThumbnail(
+                BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_file_icon), 100, 100);
 
         this.gridview_items = (GridView)findViewById(R.id.gridview_gallerie);
         this.updateView();
