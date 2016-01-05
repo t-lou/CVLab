@@ -27,6 +27,7 @@ int index_channel;
 int width, height;
 int radius;
 float scale;
+float threshold_value;
 
 uchar4 __attribute__((kernel)) out_to_in(uchar4 in) {
     return in;
@@ -106,5 +107,24 @@ uchar4 __attribute__((kernel)) mean(uchar4 in, uint32_t x, uint32_t y) {
     else {
         origin[index_channel] = out[index_channel];
         return rsPackColorTo8888(origin);
+    }
+}
+
+uchar4 __attribute__((kernel)) threshold(uchar4 in) {
+    bool if_over = false;
+    if(if_bw || index_channel < 0 || index_channel >= 4) {
+        float4 f4 = rsUnpackColor8888(in);
+        float value = 0.2126f * f4.x + 0.7152f * f4.y + 0.0722f * f4.z;
+        if_over = value > threshold_value;
+    }
+    else {
+        if_over = in[index_channel] > threshold_value;
+    }
+
+    if(if_over) {
+        return (uchar4)(255, 255, 255, 255);
+    }
+    else {
+        return (uchar4)(0, 0, 0, 255);
     }
 }

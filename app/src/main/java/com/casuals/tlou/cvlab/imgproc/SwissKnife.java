@@ -171,6 +171,8 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 // if colorful then choose channel, now do to all
                 this.filter.doMean(radius, id_channel_colorful);
                 break;
+            case "threshold":
+                this.filter.doThreshold(id_channel_colorful, 0.4f);
             default:
                 this.debug.setText("ERROR");
         }
