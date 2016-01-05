@@ -16,12 +16,13 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.casuals.tlou.cvlab.R;
-import com.casuals.tlou.cvlab.main;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -113,6 +114,8 @@ public class SwissKnife extends Activity implements View.OnClickListener {
     private void displayImage() {
         float ratio_width, ratio_height;
         int display_width, display_height;
+
+        this.image = this.filter.getCurrent().copy(this.filter.getCurrent().getConfig(), true);
         // here display the whole image, modify if part of image would be focused(zoom in)
         // then the target would be this.image_rendered
         ratio_width = (float)this.imageview_canvas.getWidth() / (float)this.image.getWidth();
@@ -136,58 +139,429 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         GallerieItem item = (GallerieItem)gridview_tools.getItemAtPosition(i);
         String name = item.getName();
         // possible parameters for tools
-        int radius = 5, id_channel_colorful = -1;
-        float sigma_gaussian = 1.0f;
-        float sigma_bilateral_range = 2.0f;
+        AlertDialog.Builder dialog_builder;
+        AlertDialog dialog;
+        LinearLayout.LayoutParams layout_edittext = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        LinearLayout content_dialog;
+        final EditText[] edit_items;
 
         // reset the image
-        this.image = null;
-        this.image_rendered = null;
-        this.imageview_canvas.setImageBitmap(null);
-        this.debug.setText(name);
+        //this.image = null;
+        //this.image_rendered = null;
+        //this.imageview_canvas.setImageBitmap(null);
+        //this.debug.setText(name);
 
         switch (name) {
             case "rgb_to_bw":
                 this.filter.doRGB2BW();
+                this.filter.waitTillEnd();
+                this.displayImage();
                 break;
             case "rescale":
-                this.filter.doRescale(2.0f, id_channel_colorful);
+                content_dialog = new LinearLayout(this);
+                content_dialog.setOrientation(LinearLayout.VERTICAL);
+                edit_items = new EditText[2];
+                edit_items[0] = new EditText(this);
+                edit_items[0].setHint("Scaling factor");
+                edit_items[0].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[0]);
+                edit_items[1] = new EditText(this);
+                edit_items[1].setHint("Channel");
+                edit_items[1].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[1]);
+                dialog_builder = new AlertDialog.Builder(this);
+                dialog_builder.setTitle("Parameter for rescaling");
+                dialog_builder.setCancelable(true);
+                dialog_builder.setView(content_dialog);
+
+                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        float scaling_factor = 1.0f;
+                        int id_channel = -1;
+                        boolean if_input_correct = true;
+                        if(edit_items[0].getText().toString().length() > 0) {
+                            try {
+                                scaling_factor = Float.parseFloat(edit_items[0].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("scaling factor not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[1].getText().toString().length() > 0) {
+                            try {
+                                id_channel = Integer.parseInt(edit_items[1].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("channel not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(if_input_correct) {
+                            filter.doRescale(scaling_factor, id_channel);
+                            filter.waitTillEnd();
+                            displayImage();
+                        }
+                    }
+                });
+                dialog = dialog_builder.create();
+                dialog.show();
                 break;
             case "up_pyramid":
                 this.filter.doUpPyramid();
+                this.filter.waitTillEnd();
+                this.displayImage();
                 break;
             case "gaussian":
-                // if colorful then choose channel, now do to all
-                this.filter.doGaussian(radius, id_channel_colorful, sigma_gaussian);
+                content_dialog = new LinearLayout(this);
+                content_dialog.setOrientation(LinearLayout.VERTICAL);
+                edit_items = new EditText[3];
+                edit_items[0] = new EditText(this);
+                edit_items[0].setHint("Radius of filter");
+                edit_items[0].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[0]);
+                edit_items[1] = new EditText(this);
+                edit_items[1].setHint("Channel");
+                edit_items[1].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[1]);
+                edit_items[2] = new EditText(this);
+                edit_items[2].setHint("Sigma");
+                edit_items[2].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[2]);
+                dialog_builder = new AlertDialog.Builder(this);
+                dialog_builder.setTitle("Parameter for Gaussian filter");
+                dialog_builder.setCancelable(true);
+                dialog_builder.setView(content_dialog);
+
+                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        int radius = 2, id_channel = -1;
+                        float sigma = 1.0f;
+                        boolean if_input_correct = true;
+                        if(edit_items[0].getText().toString().length() > 0) {
+                            try {
+                                radius = Integer.parseInt(edit_items[0].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("radius not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[1].getText().toString().length() > 0) {
+                            try {
+                                id_channel = Integer.parseInt(edit_items[1].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("channel not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[2].getText().toString().length() > 0) {
+                            try {
+                                sigma = Float.parseFloat(edit_items[2].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("sigma not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(if_input_correct) {
+                            filter.doGaussian(radius, id_channel, sigma);
+                            filter.waitTillEnd();
+                            displayImage();
+                        }
+                    }
+                });
+                dialog = dialog_builder.create();
+                dialog.show();
                 break;
             case "laplacian":
-                // if colorful then choose channel, now do to all
-                this.filter.doLaplacian(id_channel_colorful, 2.0f);
+                content_dialog = new LinearLayout(this);
+                content_dialog.setOrientation(LinearLayout.VERTICAL);
+                edit_items = new EditText[2];
+                edit_items[0] = new EditText(this);
+                edit_items[0].setHint("Channel");
+                edit_items[0].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[0]);
+                edit_items[1] = new EditText(this);
+                edit_items[1].setHint("Scaling factor");
+                edit_items[1].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[1]);
+                dialog_builder = new AlertDialog.Builder(this);
+                dialog_builder.setTitle("Parameter for Laplacian filter");
+                dialog_builder.setCancelable(true);
+                dialog_builder.setView(content_dialog);
+
+                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        int id_channel = -1;
+                        float scaling_factor = 1.0f;
+                        boolean if_input_correct = true;
+                        if(edit_items[0].getText().toString().length() > 0) {
+                            try {
+                                id_channel = Integer.parseInt(edit_items[0].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("channel not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[1].getText().toString().length() > 0) {
+                            try {
+                                scaling_factor = Integer.parseInt(edit_items[1].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("scaling factor not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(if_input_correct) {
+                            filter.doLaplacian(id_channel, scaling_factor);
+                            filter.waitTillEnd();
+                            displayImage();
+                        }
+                    }
+                });
+                dialog = dialog_builder.create();
+                dialog.show();
                 break;
             case "gaussian_laplacian":
-                // if colorful then choose channel, now do to all
-                this.filter.doGaussianLaplacian(radius, id_channel_colorful, sigma_gaussian, 2.0f);
+                content_dialog = new LinearLayout(this);
+                content_dialog.setOrientation(LinearLayout.VERTICAL);
+                edit_items = new EditText[2];
+                edit_items[0] = new EditText(this);
+                edit_items[0].setHint("Channel");
+                edit_items[0].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[0]);
+                edit_items[1] = new EditText(this);
+                edit_items[1].setHint("Radius");
+                edit_items[1].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[1]);
+                edit_items[2] = new EditText(this);
+                edit_items[2].setHint("Sigma");
+                edit_items[2].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[2]);
+                edit_items[3] = new EditText(this);
+                edit_items[3].setHint("Scaling factor");
+                edit_items[3].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[3]);
+                dialog_builder = new AlertDialog.Builder(this);
+                dialog_builder.setTitle("Parameter for Gaussian-Laplacian filter");
+                dialog_builder.setCancelable(true);
+                dialog_builder.setView(content_dialog);
+
+                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        int id_channel = -1, radius = 2;
+                        float sigma_gaussian = 1.0f, scaling_factor = 1.0f;
+                        boolean if_input_correct = true;
+                        if(edit_items[0].getText().toString().length() > 0) {
+                            try {
+                                id_channel = Integer.parseInt(edit_items[0].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("channel not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[1].getText().toString().length() > 0) {
+                            try {
+                                radius = Integer.parseInt(edit_items[1].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("radius not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[2].getText().toString().length() > 0) {
+                            try {
+                                sigma_gaussian = Float.parseFloat(edit_items[2].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("sigma not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[3].getText().toString().length() > 0) {
+                            try {
+                                scaling_factor = Float.parseFloat(edit_items[3].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("scaling factor not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(if_input_correct) {
+                            filter.doGaussianLaplacian(radius, id_channel, sigma_gaussian, scaling_factor);
+                            filter.waitTillEnd();
+                            displayImage();
+                        }
+                    }
+                });
+                dialog = dialog_builder.create();
+                dialog.show();
                 break;
             case "bilateral":
-                // if colorful then choose channel, now do to all
-                this.filter.doBilateral(radius, id_channel_colorful, sigma_gaussian, 2.0f);
+                content_dialog = new LinearLayout(this);
+                content_dialog.setOrientation(LinearLayout.VERTICAL);
+                edit_items = new EditText[4];
+                edit_items[0] = new EditText(this);
+                edit_items[0].setHint("Channel");
+                edit_items[0].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[0]);
+                edit_items[1] = new EditText(this);
+                edit_items[1].setHint("Radius");
+                edit_items[1].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[1]);
+                edit_items[2] = new EditText(this);
+                edit_items[2].setHint("Sigma for spatial filter");
+                edit_items[2].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[2]);
+                edit_items[3] = new EditText(this);
+                edit_items[3].setHint("Sigma for range filter");
+                edit_items[3].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[3]);
+                dialog_builder = new AlertDialog.Builder(this);
+                dialog_builder.setTitle("Parameter for bilateral filter");
+                dialog_builder.setCancelable(true);
+                dialog_builder.setView(content_dialog);
+
+                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        int id_channel = -1, radius = 2;
+                        float sigma_spatial = 1.0f, sigma_range = 1.0f;
+                        boolean if_input_correct = true;
+                        if(edit_items[0].getText().toString().length() > 0) {
+                            try {
+                                id_channel = Integer.parseInt(edit_items[0].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("channel not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[1].getText().toString().length() > 0) {
+                            try {
+                                radius = Integer.parseInt(edit_items[1].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("radius not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[2].getText().toString().length() > 0) {
+                            try {
+                                sigma_spatial = Float.parseFloat(edit_items[2].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("sigma for range filter not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[3].getText().toString().length() > 0) {
+                            try {
+                                sigma_range = Float.parseFloat(edit_items[3].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("sigma for range filter not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(if_input_correct) {
+                            filter.doBilateral(radius, id_channel, sigma_spatial, sigma_range);
+                            filter.waitTillEnd();
+                            displayImage();
+                        }
+                    }
+                });
+                dialog = dialog_builder.create();
+                dialog.show();
                 break;
             case "mean":
-                // if colorful then choose channel, now do to all
-                this.filter.doMean(radius, id_channel_colorful);
+                content_dialog = new LinearLayout(this);
+                content_dialog.setOrientation(LinearLayout.VERTICAL);
+                edit_items = new EditText[2];
+                edit_items[0] = new EditText(this);
+                edit_items[0].setHint("Channel");
+                edit_items[0].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[0]);
+                edit_items[1] = new EditText(this);
+                edit_items[1].setHint("Radius");
+                edit_items[1].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[1]);
+                dialog_builder = new AlertDialog.Builder(this);
+                dialog_builder.setTitle("Parameter for mean filter");
+                dialog_builder.setCancelable(true);
+                dialog_builder.setView(content_dialog);
+
+                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        int id_channel = -1, radius = 2;
+                        boolean if_input_correct = true;
+                        if(edit_items[0].getText().toString().length() > 0) {
+                            try {
+                                id_channel = Integer.parseInt(edit_items[0].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("channel not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[1].getText().toString().length() > 0) {
+                            try {
+                                radius = Integer.parseInt(edit_items[1].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("radius not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(if_input_correct) {
+                            filter.doMean(radius, id_channel);
+                            filter.waitTillEnd();
+                            displayImage();
+                        }
+                    }
+                });
+                dialog = dialog_builder.create();
+                dialog.show();
                 break;
             case "threshold":
-                this.filter.doThreshold(id_channel_colorful, 0.4f);
+                content_dialog = new LinearLayout(this);
+                content_dialog.setOrientation(LinearLayout.VERTICAL);
+                edit_items = new EditText[2];
+                edit_items[0] = new EditText(this);
+                edit_items[0].setHint("Channel");
+                edit_items[0].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[0]);
+                edit_items[1] = new EditText(this);
+                edit_items[1].setHint("Threshold");
+                edit_items[1].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[1]);
+                dialog_builder = new AlertDialog.Builder(this);
+                dialog_builder.setTitle("Parameter for thresholding");
+                dialog_builder.setCancelable(true);
+                dialog_builder.setView(content_dialog);
+
+                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        int id_channel = -1;
+                        float thredshold = 0.5f;
+                        boolean if_input_correct = true;
+                        if(edit_items[0].getText().toString().length() > 0) {
+                            try {
+                                id_channel = Integer.parseInt(edit_items[0].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("channel not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(edit_items[1].getText().toString().length() > 0) {
+                            try {
+                                thredshold = Float.parseFloat(edit_items[1].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("threshold not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(if_input_correct) {
+                            filter.doThreshold(id_channel, thredshold);
+                            filter.waitTillEnd();
+                            displayImage();
+                        }
+                    }
+                });
+                dialog = dialog_builder.create();
+                dialog.show();
             default:
-                this.debug.setText("ERROR");
+                break;
         }
-        this.filter.waitTillEnd();
-        this.debug.append(" finished");
-
         this.if_saved = false;
-
-        this.image = this.filter.getCurrent().copy(this.filter.getCurrent().getConfig(), true);
-        this.displayImage();
     }
 
     private void saveImage(Bitmap image, File file) {
@@ -261,11 +635,6 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         this.image = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
     }
 
-    private void backToMenu() {
-        Intent in = new Intent(this, main.class);
-        startActivity(in);
-    }
-
     private TextView debug;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -333,8 +702,8 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             case R.id.button_swissknife_undo:
                 this.filter.resetData();
                 this.image = BitmapFactory.decodeFile(this.file_last_image.getAbsolutePath());
-                this.displayImage();
                 this.filter.setData(this.image);
+                this.displayImage();
                 break;
 
             case R.id.button_swissknife_save:
@@ -354,7 +723,8 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 });
                 builder.setPositiveButton("Absolutely", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        backToMenu();
+                        Intent intent = new Intent(SwissKnife.this, Gallerie.class);
+                        startActivity(intent);
                     }
                 });
                 AlertDialog dialog = builder.create();

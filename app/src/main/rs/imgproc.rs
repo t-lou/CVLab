@@ -111,7 +111,7 @@ uchar4 __attribute__((kernel)) mean(uchar4 in, uint32_t x, uint32_t y) {
 }
 
 uchar4 __attribute__((kernel)) bilateral(uchar4 in, uint32_t x, uint32_t y) {
-    // use threshold_value as 2*(sigma^2) for range kernel
+    // use threshold_value as 2 * sigma^2) for range kernel
     int i, j, index = 0;
     float4 out = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
     float4 origin = rsUnpackColor8888(in);
@@ -136,8 +136,8 @@ uchar4 __attribute__((kernel)) bilateral(uchar4 in, uint32_t x, uint32_t y) {
 
             if((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
                 out += rsUnpackColor8888(rsGetElementAt_uchar4(context, x + i, y + j))
-                    * rsGetElementAt_float(mask, index) * weight_range;
-                weight += rsGetElementAt_float(mask, index) * weight_range;
+                    * rsGetElementAt_float(mask, index) * range_weight;
+                weight += rsGetElementAt_float(mask, index) * range_weight;
             }
             index++;
         }
