@@ -635,13 +635,10 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         this.image = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
     }
 
-    private TextView debug;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_swissknife);
-
-        this.debug = (TextView)findViewById(R.id.textView);
 
         this.imageview_canvas = (ImageView)findViewById(R.id.swissknife_imageview_canvas);
 

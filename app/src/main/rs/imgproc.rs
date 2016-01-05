@@ -132,12 +132,11 @@ uchar4 __attribute__((kernel)) bilateral(uchar4 in, uint32_t x, uint32_t y) {
                 weight_range = origin[index_channel];
             }
 
-            weight_range = exp(-weight_range * weight_range / threshold_value);
-
             if((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
+                weight_range = exp(-weight_range * weight_range / threshold_value);
                 out += rsUnpackColor8888(rsGetElementAt_uchar4(context, x + i, y + j))
-                    * rsGetElementAt_float(mask, index) * range_weight;
-                weight += rsGetElementAt_float(mask, index) * range_weight;
+                    * rsGetElementAt_float(mask, index) * weight_range;
+                weight += rsGetElementAt_float(mask, index) * weight_range;
             }
             index++;
         }
@@ -154,6 +153,7 @@ uchar4 __attribute__((kernel)) bilateral(uchar4 in, uint32_t x, uint32_t y) {
 
 uchar4 __attribute__((kernel)) threshold(uchar4 in) {
     bool if_over = false;
+    float4 result;
     float4 f4 = rsUnpackColor8888(in);
     if(if_bw || index_channel < 0 || index_channel >= 4) {
         float value = 0.2126f * f4.x + 0.7152f * f4.y + 0.0722f * f4.z;
@@ -164,9 +164,10 @@ uchar4 __attribute__((kernel)) threshold(uchar4 in) {
     }
 
     if(if_over) {
-        return (uchar4)(255, 255, 255, 255);
+        result = (float4)(1.0f, 1.0f, 1.0f, 1.0f);
     }
     else {
-        return (uchar4)(0, 0, 0, 255);
+        result = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
     }
+    return rsPackColorTo8888(result);
 }
