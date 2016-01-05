@@ -26,10 +26,7 @@ import com.casuals.tlou.cvlab.main;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.locks.ReentrantLock;
 
 /*
  *
@@ -96,7 +93,6 @@ public class SwissKnife extends Activity implements View.OnClickListener {
     private File file_origin;
     private File file_last_image;
     private boolean if_saved;
-    private boolean if_colorful;
     private boolean if_need_display;
 
     private Filter filter;
@@ -153,7 +149,6 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         switch (name) {
             case "rgb_to_bw":
                 this.filter.doRGB2BW();
-                this.if_colorful = false;
                 break;
             case "rescale":
                 this.filter.doRescale(2.0f, id_channel_colorful);
@@ -266,6 +261,11 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         this.image = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
     }
 
+    private void backToMenu() {
+        Intent in = new Intent(this, main.class);
+        startActivity(in);
+    }
+
     private TextView debug;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -309,7 +309,6 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         this.filter.setData(this.image);
 
         this.if_saved = true;
-        this.if_colorful = true;
         this.if_need_display = true;
 
         this.file_last_image = Environment.getExternalStoragePublicDirectory(
@@ -332,6 +331,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         Intent in;
         switch(v.getId()) {
             case R.id.button_swissknife_undo:
+                this.filter.resetData();
                 this.image = BitmapFactory.decodeFile(this.file_last_image.getAbsolutePath());
                 this.displayImage();
                 this.filter.setData(this.image);
@@ -345,8 +345,20 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 break;
 
             case R.id.button_swissknife_back:
-                in = new Intent(this, main.class);
-                startActivity(in);
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("Image is large");
+                builder.setMessage("Image not save, are you sure?");
+                builder.setNegativeButton("No wait", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                    }
+                });
+                builder.setPositiveButton("Absolutely", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        backToMenu();
+                    }
+                });
+                AlertDialog dialog = builder.create();
+                dialog.show();
                 break;
         }
     }

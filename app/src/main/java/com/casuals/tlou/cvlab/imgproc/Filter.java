@@ -45,8 +45,6 @@ public class Filter {
     public Filter(Context context) {
         this.render_script = RenderScript.create(context);
         this.script = new ScriptC_imgproc(render_script);
-
-        this.if_colorful = true;
     }
 
     public void setData(Bitmap source) {
@@ -55,6 +53,8 @@ public class Filter {
 
         this.allocation_in = Allocation.createFromBitmap(this.render_script, this.data);
         this.allocation_out = Allocation.createFromBitmap(this.render_script, this.data_out);
+
+        this.if_colorful = true;
     }
 
     public void resetData() {
@@ -67,10 +67,8 @@ public class Filter {
     public void doRGB2BW() {
         this.lock.lock();
 
-        if(this.if_colorful) {
-            this.script.forEach_rgb_to_bw(this.allocation_in, this.allocation_out);
-            this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
-        }
+        this.script.forEach_rgb_to_bw(this.allocation_in, this.allocation_out);
+        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
         this.if_colorful = false;
 
         this.lock.unlock();
