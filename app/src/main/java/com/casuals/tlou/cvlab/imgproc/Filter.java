@@ -27,7 +27,8 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class Filter {
     private String[] available_filters = {"rgb_to_bw", "rescale", "up_pyramid",
-            "gaussian", "laplacian", "gaussian_laplacian", "mean", "threshold"};
+            "gaussian", "laplacian", "gaussian_laplacian", "mean", "bilateral",
+            "threshold"};
 
     private RenderScript render_script;
     private ScriptC_imgproc script;
@@ -50,11 +51,17 @@ public class Filter {
 
     public void setData(Bitmap source) {
         this.data = source.copy(source.getConfig(), true);
-        //this.data_out = source.copy(source.getConfig(), true);
+        this.data_out = source.copy(source.getConfig(), true);
 
         this.allocation_in = Allocation.createFromBitmap(this.render_script, this.data);
-        //this.allocation_out = Allocation.createFromBitmap(this.render_script, this.data_out);
-        this.allocation_out = Allocation.createFromBitmap(this.render_script, this.data);
+        this.allocation_out = Allocation.createFromBitmap(this.render_script, this.data_out);
+    }
+
+    public void resetData() {
+        this.data = null;
+        this.data_out = null;
+        this.allocation_in = null;
+        this.allocation_out = null;
     }
 
     public void doRGB2BW() {
@@ -62,7 +69,7 @@ public class Filter {
 
         if(this.if_colorful) {
             this.script.forEach_rgb_to_bw(this.allocation_in, this.allocation_out);
-            //this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+            this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
         }
         this.if_colorful = false;
 
@@ -76,7 +83,7 @@ public class Filter {
         this.script.set_index_channel(idChannel);
         this.script.set_scale(scale);
         this.script.forEach_rescale(this.allocation_in, this.allocation_out);
-        //this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
@@ -93,7 +100,7 @@ public class Filter {
         this.allocation_in = Allocation.createFromBitmap(this.render_script, this.data);
         this.allocation_out = Allocation.createFromBitmap(this.render_script, this.data_out);
         this.script.forEach_up_pyramid(this.allocation_in, this.allocation_out);
-        //this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
@@ -115,7 +122,7 @@ public class Filter {
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
         this.script.forEach_gaussian(this.allocation_in, this.allocation_out);
-        //this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
@@ -137,7 +144,7 @@ public class Filter {
         this.script.set_index_channel(idChannel);
         this.script.set_radius(1);
         this.script.forEach_gaussian(this.allocation_in, this.allocation_out);
-        //this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
@@ -162,7 +169,7 @@ public class Filter {
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
         this.script.forEach_gaussian(this.allocation_in, this.allocation_out);
-        //this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
@@ -177,7 +184,30 @@ public class Filter {
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
         this.script.forEach_mean(this.allocation_in, this.allocation_out);
-        //this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+
+        this.lock.unlock();
+    }
+
+    public void doBilateral(int radius, int idChannel, float sigma_spatial, float sigma_range) {
+        float[] mask = this.createGaussianMask(radius, sigma_spatial);
+        Allocation allocation_mask = Allocation.createSized(this.render_script,
+                Element.F32(this.render_script), mask.length);
+        allocation_mask.copyFrom(mask);
+
+        this.lock.lock();
+
+        this.script.set_scale(1.0f);
+        this.script.set_threshold_value(2.0f * sigma_range * sigma_range);
+        this.script.set_mask(allocation_mask);
+        this.script.set_context(this.allocation_in);
+        this.script.set_height(this.data.getHeight());
+        this.script.set_width(this.data.getWidth());
+        this.script.set_if_bw(!this.if_colorful);
+        this.script.set_index_channel(idChannel);
+        this.script.set_radius(radius);
+        this.script.forEach_bilateral(this.allocation_in, this.allocation_out);
+        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
@@ -189,7 +219,7 @@ public class Filter {
         this.script.set_if_bw(!this.if_colorful);
         this.script.set_index_channel(idChannel);
         this.script.forEach_threshold(this.allocation_in, this.allocation_out);
-        //this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
@@ -199,9 +229,8 @@ public class Filter {
     //}
 
     public Bitmap getCurrent() {
-        //this.allocation_out.copyTo(this.data_out);
-        //return this.data_out;
-        return this.data;
+        this.allocation_out.copyTo(this.data_out);
+        return this.data_out;
     }
 
     public String[] getFilterNames () {

@@ -1,7 +1,9 @@
 package com.casuals.tlou.cvlab.imgproc;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -24,7 +26,10 @@ import com.casuals.tlou.cvlab.main;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.locks.ReentrantLock;
 
 /*
  *
@@ -137,6 +142,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         // possible parameters for tools
         int radius = 5, id_channel_colorful = -1;
         float sigma_gaussian = 1.0f;
+        float sigma_bilateral_range = 2.0f;
 
         // reset the image
         this.image = null;
@@ -166,6 +172,10 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             case "gaussian_laplacian":
                 // if colorful then choose channel, now do to all
                 this.filter.doGaussianLaplacian(radius, id_channel_colorful, sigma_gaussian, 2.0f);
+                break;
+            case "bilateral":
+                // if colorful then choose channel, now do to all
+                this.filter.doBilateral(radius, id_channel_colorful, sigma_gaussian, 2.0f);
                 break;
             case "mean":
                 // if colorful then choose channel, now do to all
@@ -200,6 +210,60 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 e.printStackTrace();
             }
         }
+    }
+
+    private void alert(String message) {
+        AlertDialog.Builder alert;
+
+        alert = new AlertDialog.Builder(this);
+        alert.setMessage(message)
+                .setCancelable(true);
+        alert.show();
+    }
+
+    private void openImage(File file) {
+        int file_width, file_height;
+        final File file_copy = file;
+
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        options.inSampleSize = 1;
+        BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+
+        file_width = options.outWidth;
+        file_height = options.outHeight;
+
+        if(file_width > 2048 || file_height > 2048) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("Image is large");
+            builder.setMessage("Image is quite huge, may be slow or even cause memory problem, " +
+                    "load smaller version? \nIf the application returns to main menu, then " +
+                    "probably there is not enough memory for image.");
+            builder.setNegativeButton("No thanks", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int id) {
+                    image = null;
+                    filter.resetData();
+                    image = BitmapFactory.decodeFile(file_copy.getAbsolutePath());
+                    filter.setData(image);
+                    alert("Original image opened");
+                }
+            });
+            builder.setPositiveButton("Okay", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int id) {
+                    alert("Schinked image opened");
+                }
+            });
+            AlertDialog dialog = builder.create();
+            dialog.show();
+
+            while(file_width> 1024 && file_height > 1024) {
+                file_width /= 2;
+                file_height /= 2;
+                options.inSampleSize++;
+            }
+        }
+        options.inJustDecodeBounds = false;
+        this.image = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
     }
 
     private TextView debug;
@@ -238,7 +302,8 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
         this.name = getIntent().getExtras().getString("path");
         this.file_origin = new File(this.name);
-        this.image = BitmapFactory.decodeFile(this.name);
+        // open scaled image
+        this.openImage(this.file_origin);
         this.image_rendered = null;
 
         this.filter.setData(this.image);
