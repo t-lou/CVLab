@@ -20,6 +20,7 @@ import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import com.casuals.tlou.cvlab.R;
@@ -147,11 +148,12 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         LinearLayout content_dialog;
         final EditText[] edit_items;
 
-        // reset the image
-        //this.image = null;
-        //this.image_rendered = null;
-        //this.imageview_canvas.setImageBitmap(null);
-        //this.debug.setText(name);
+        String[] item_channels = {"all channels", "red", "green", "blue", "alpha"};
+        ArrayAdapter<String> adapter_channels = new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_item, item_channels);
+        final Spinner spinner_channels = new Spinner(this);
+        spinner_channels.setAdapter(adapter_channels);
+        spinner_channels.setLayoutParams(layout_edittext);
 
         switch (name) {
             case "rgb_to_bw":
@@ -162,15 +164,15 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             case "rescale":
                 content_dialog = new LinearLayout(this);
                 content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[2];
+                edit_items = new EditText[1];
+
+                content_dialog.addView(spinner_channels);
+
                 edit_items[0] = new EditText(this);
                 edit_items[0].setHint("Scaling factor");
                 edit_items[0].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[0]);
-                edit_items[1] = new EditText(this);
-                edit_items[1].setHint("Channel");
-                edit_items[1].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[1]);
+
                 dialog_builder = new AlertDialog.Builder(this);
                 dialog_builder.setTitle("Parameter for rescaling");
                 dialog_builder.setCancelable(true);
@@ -179,21 +181,14 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
                         float scaling_factor = 1.0f;
-                        int id_channel = -1;
+                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1;
                         boolean if_input_correct = true;
+
                         if(edit_items[0].getText().toString().length() > 0) {
                             try {
                                 scaling_factor = Float.parseFloat(edit_items[0].getText().toString());
                             } catch (NumberFormatException e) {
                                 alert("scaling factor not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(edit_items[1].getText().toString().length() > 0) {
-                            try {
-                                id_channel = Integer.parseInt(edit_items[1].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("channel not recognised");
                                 if_input_correct = false;
                             }
                         }
@@ -215,19 +210,19 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             case "gaussian":
                 content_dialog = new LinearLayout(this);
                 content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[3];
+                edit_items = new EditText[2];
+
+                content_dialog.addView(spinner_channels);
+
                 edit_items[0] = new EditText(this);
                 edit_items[0].setHint("Radius of filter");
                 edit_items[0].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[0]);
                 edit_items[1] = new EditText(this);
-                edit_items[1].setHint("Channel");
+                edit_items[1].setHint("Sigma");
                 edit_items[1].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[1]);
-                edit_items[2] = new EditText(this);
-                edit_items[2].setHint("Sigma");
-                edit_items[2].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[2]);
+
                 dialog_builder = new AlertDialog.Builder(this);
                 dialog_builder.setTitle("Parameter for Gaussian filter");
                 dialog_builder.setCancelable(true);
@@ -235,7 +230,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int radius = 2, id_channel = -1;
+                        int radius = 2, id_channel = (int)spinner_channels.getSelectedItemId() - 1;
                         float sigma = 1.0f;
                         boolean if_input_correct = true;
                         if(edit_items[0].getText().toString().length() > 0) {
@@ -248,15 +243,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                         }
                         if(edit_items[1].getText().toString().length() > 0) {
                             try {
-                                id_channel = Integer.parseInt(edit_items[1].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("channel not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(edit_items[2].getText().toString().length() > 0) {
-                            try {
-                                sigma = Float.parseFloat(edit_items[2].getText().toString());
+                                sigma = Float.parseFloat(edit_items[1].getText().toString());
                             } catch (NumberFormatException e) {
                                 alert("sigma not recognised");
                                 if_input_correct = false;
@@ -275,15 +262,15 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             case "laplacian":
                 content_dialog = new LinearLayout(this);
                 content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[2];
+                edit_items = new EditText[1];
+
+                content_dialog.addView(spinner_channels);
+
                 edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Channel");
+                edit_items[0].setHint("Scaling factor");
                 edit_items[0].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[0]);
-                edit_items[1] = new EditText(this);
-                edit_items[1].setHint("Scaling factor");
-                edit_items[1].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[1]);
+
                 dialog_builder = new AlertDialog.Builder(this);
                 dialog_builder.setTitle("Parameter for Laplacian filter");
                 dialog_builder.setCancelable(true);
@@ -291,20 +278,13 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = -1;
+                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1;
                         float scaling_factor = 1.0f;
                         boolean if_input_correct = true;
+
                         if(edit_items[0].getText().toString().length() > 0) {
                             try {
-                                id_channel = Integer.parseInt(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("channel not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(edit_items[1].getText().toString().length() > 0) {
-                            try {
-                                scaling_factor = Integer.parseInt(edit_items[1].getText().toString());
+                                scaling_factor = Integer.parseInt(edit_items[0].getText().toString());
                             } catch (NumberFormatException e) {
                                 alert("scaling factor not recognised");
                                 if_input_correct = false;
@@ -323,23 +303,23 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             case "gaussian_laplacian":
                 content_dialog = new LinearLayout(this);
                 content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[2];
+                edit_items = new EditText[3];
+
+                content_dialog.addView(spinner_channels);
+
                 edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Channel");
+                edit_items[0].setHint("Radius");
                 edit_items[0].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[0]);
                 edit_items[1] = new EditText(this);
-                edit_items[1].setHint("Radius");
+                edit_items[1].setHint("Sigma");
                 edit_items[1].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[1]);
                 edit_items[2] = new EditText(this);
-                edit_items[2].setHint("Sigma");
+                edit_items[2].setHint("Scaling factor");
                 edit_items[2].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[2]);
-                edit_items[3] = new EditText(this);
-                edit_items[3].setHint("Scaling factor");
-                edit_items[3].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[3]);
+
                 dialog_builder = new AlertDialog.Builder(this);
                 dialog_builder.setTitle("Parameter for Gaussian-Laplacian filter");
                 dialog_builder.setCancelable(true);
@@ -347,36 +327,29 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = -1, radius = 2;
+                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1, radius = 2;
                         float sigma_gaussian = 1.0f, scaling_factor = 1.0f;
                         boolean if_input_correct = true;
+
                         if(edit_items[0].getText().toString().length() > 0) {
                             try {
-                                id_channel = Integer.parseInt(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("channel not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(edit_items[1].getText().toString().length() > 0) {
-                            try {
-                                radius = Integer.parseInt(edit_items[1].getText().toString());
+                                radius = Integer.parseInt(edit_items[0].getText().toString());
                             } catch (NumberFormatException e) {
                                 alert("radius not recognised");
                                 if_input_correct = false;
                             }
                         }
-                        if(edit_items[2].getText().toString().length() > 0) {
+                        if(edit_items[1].getText().toString().length() > 0) {
                             try {
-                                sigma_gaussian = Float.parseFloat(edit_items[2].getText().toString());
+                                sigma_gaussian = Float.parseFloat(edit_items[1].getText().toString());
                             } catch (NumberFormatException e) {
                                 alert("sigma not recognised");
                                 if_input_correct = false;
                             }
                         }
-                        if(edit_items[3].getText().toString().length() > 0) {
+                        if(edit_items[2].getText().toString().length() > 0) {
                             try {
-                                scaling_factor = Float.parseFloat(edit_items[3].getText().toString());
+                                scaling_factor = Float.parseFloat(edit_items[2].getText().toString());
                             } catch (NumberFormatException e) {
                                 alert("scaling factor not recognised");
                                 if_input_correct = false;
@@ -395,23 +368,23 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             case "bilateral":
                 content_dialog = new LinearLayout(this);
                 content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[4];
+                edit_items = new EditText[3];
+
+                content_dialog.addView(spinner_channels);
+
                 edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Channel");
+                edit_items[0].setHint("Radius");
                 edit_items[0].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[0]);
                 edit_items[1] = new EditText(this);
-                edit_items[1].setHint("Radius");
+                edit_items[1].setHint("Sigma for spatial filter");
                 edit_items[1].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[1]);
                 edit_items[2] = new EditText(this);
-                edit_items[2].setHint("Sigma for spatial filter");
+                edit_items[2].setHint("Sigma for range filter");
                 edit_items[2].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[2]);
-                edit_items[3] = new EditText(this);
-                edit_items[3].setHint("Sigma for range filter");
-                edit_items[3].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[3]);
+
                 dialog_builder = new AlertDialog.Builder(this);
                 dialog_builder.setTitle("Parameter for bilateral filter");
                 dialog_builder.setCancelable(true);
@@ -419,36 +392,29 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = -1, radius = 2;
+                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1, radius = 2;
                         float sigma_spatial = 1.0f, sigma_range = 1.0f;
                         boolean if_input_correct = true;
+
                         if(edit_items[0].getText().toString().length() > 0) {
                             try {
-                                id_channel = Integer.parseInt(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("channel not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(edit_items[1].getText().toString().length() > 0) {
-                            try {
-                                radius = Integer.parseInt(edit_items[1].getText().toString());
+                                radius = Integer.parseInt(edit_items[0].getText().toString());
                             } catch (NumberFormatException e) {
                                 alert("radius not recognised");
                                 if_input_correct = false;
                             }
                         }
-                        if(edit_items[2].getText().toString().length() > 0) {
+                        if(edit_items[1].getText().toString().length() > 0) {
                             try {
-                                sigma_spatial = Float.parseFloat(edit_items[2].getText().toString());
+                                sigma_spatial = Float.parseFloat(edit_items[1].getText().toString());
                             } catch (NumberFormatException e) {
                                 alert("sigma for range filter not recognised");
                                 if_input_correct = false;
                             }
                         }
-                        if(edit_items[3].getText().toString().length() > 0) {
+                        if(edit_items[2].getText().toString().length() > 0) {
                             try {
-                                sigma_range = Float.parseFloat(edit_items[3].getText().toString());
+                                sigma_range = Float.parseFloat(edit_items[2].getText().toString());
                             } catch (NumberFormatException e) {
                                 alert("sigma for range filter not recognised");
                                 if_input_correct = false;
@@ -467,15 +433,15 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             case "mean":
                 content_dialog = new LinearLayout(this);
                 content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[2];
+                edit_items = new EditText[1];
+
+                content_dialog.addView(spinner_channels);
+
                 edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Channel");
+                edit_items[0].setHint("Radius");
                 edit_items[0].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[0]);
-                edit_items[1] = new EditText(this);
-                edit_items[1].setHint("Radius");
-                edit_items[1].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[1]);
+
                 dialog_builder = new AlertDialog.Builder(this);
                 dialog_builder.setTitle("Parameter for mean filter");
                 dialog_builder.setCancelable(true);
@@ -483,19 +449,12 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = -1, radius = 2;
+                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1, radius = 2;
                         boolean if_input_correct = true;
+
                         if(edit_items[0].getText().toString().length() > 0) {
                             try {
-                                id_channel = Integer.parseInt(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("channel not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(edit_items[1].getText().toString().length() > 0) {
-                            try {
-                                radius = Integer.parseInt(edit_items[1].getText().toString());
+                                radius = Integer.parseInt(edit_items[0].getText().toString());
                             } catch (NumberFormatException e) {
                                 alert("radius not recognised");
                                 if_input_correct = false;
@@ -514,15 +473,15 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             case "threshold":
                 content_dialog = new LinearLayout(this);
                 content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[2];
+                edit_items = new EditText[1];
+
+                content_dialog.addView(spinner_channels);
+
                 edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Channel");
+                edit_items[0].setHint("Threshold");
                 edit_items[0].setLayoutParams(layout_edittext);
                 content_dialog.addView(edit_items[0]);
-                edit_items[1] = new EditText(this);
-                edit_items[1].setHint("Threshold");
-                edit_items[1].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[1]);
+
                 dialog_builder = new AlertDialog.Builder(this);
                 dialog_builder.setTitle("Parameter for thresholding");
                 dialog_builder.setCancelable(true);
@@ -530,20 +489,13 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = -1;
+                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1;
                         float thredshold = 0.5f;
                         boolean if_input_correct = true;
+
                         if(edit_items[0].getText().toString().length() > 0) {
                             try {
-                                id_channel = Integer.parseInt(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("channel not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(edit_items[1].getText().toString().length() > 0) {
-                            try {
-                                thredshold = Float.parseFloat(edit_items[1].getText().toString());
+                                thredshold = Float.parseFloat(edit_items[0].getText().toString());
                             } catch (NumberFormatException e) {
                                 alert("threshold not recognised");
                                 if_input_correct = false;
