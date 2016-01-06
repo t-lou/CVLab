@@ -1,11 +1,17 @@
 package com.casuals.tlou.cvlab;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
+import android.text.SpannableString;
+import android.text.method.LinkMovementMethod;
+import android.text.util.Linkify;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import java.io.File;
 
@@ -32,6 +38,7 @@ public class main extends Activity implements View.OnClickListener {
 
     private Button button_camera;
     private Button button_swissknife;
+    private Button button_about;
 
     private void prepDir() {
         File folder = new File(Environment.getExternalStorageDirectory()
@@ -60,9 +67,11 @@ public class main extends Activity implements View.OnClickListener {
 
         this.button_camera = (Button)findViewById(R.id.button_camera);
         this.button_swissknife = (Button)findViewById(R.id.button_swissknife);
+        this.button_about = (Button)findViewById(R.id.button_about);
 
         this.button_camera.setOnClickListener(this);
         this.button_swissknife.setOnClickListener(this);
+        this.button_about.setOnClickListener(this);
     }
 
     @Override
@@ -77,6 +86,38 @@ public class main extends Activity implements View.OnClickListener {
             case R.id.button_swissknife:
                 in = new Intent(this, Gallerie.class);
                 startActivity(in);
+                break;
+
+            case R.id.button_about:
+                TextView message = new TextView(this);
+                TextView homepage = new TextView(this);
+                TextView contact = new TextView(this);
+                AlertDialog.Builder alert = new AlertDialog.Builder(this);
+                LinearLayout content_dialog = new LinearLayout(this);
+                SpannableString str;
+
+                content_dialog.setOrientation(LinearLayout.VERTICAL);
+                message.setText("Unlike most image processing applications, this " +
+                                "one aims at image enhancement for technical usage. " +
+                                "It is usually unavoidable to study the algorithm or implementation " +
+                                "from other works, so please contact me if your right is violated. " +
+                                "Also feel free to join if you are interested. This application is " +
+                                "open source and follows Apache-2.0 License.");
+                content_dialog.addView(message);
+                str = new SpannableString( "Mainpage https://github.com/t-lou/CVLab");
+                Linkify.addLinks(str, Linkify.WEB_URLS);
+                homepage.setText(str);
+                homepage.setMovementMethod(LinkMovementMethod.getInstance());
+                content_dialog.addView(homepage);
+                str = new SpannableString( "Contact: Tongxi Lou tongxi.lou@tum.de");
+                Linkify.addLinks(str, Linkify.EMAIL_ADDRESSES);
+                contact.setText(str);
+                contact.setMovementMethod(LinkMovementMethod.getInstance());
+                content_dialog.addView(contact);
+
+                alert.setView(content_dialog);
+                alert.setCancelable(true);
+                alert.show();
                 break;
         }
     }
