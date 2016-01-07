@@ -256,16 +256,17 @@ public class Filter {
     }
 
     private float[] createLaplacianMask() {
-        float[] mask = {0.5f, 1.0f, 0.5f, 1.0f, -6.0f, 1.0f, 0.5f, 1.0f, 0.5f};
+        float[] mask = {-0.5f, -1.0f, -0.5f, -1.0f, 6.0f, -1.0f, -0.5f, -1.0f, -0.5f};
         return mask;
     }
 
     private float[] createGaussianLaplacianMask(int radius, float sigma) {
         int length = 2 * radius + 1;
         float[] mask_gaussian = this.createGaussianMask(radius, sigma);
-        float[] mask_laplacian = this.createGaussianMask(radius, sigma);
+        float[] mask_laplacian = this.createLaplacianMask();
         float[] mask = new float[length * length];
         int index = 0;
+        float sum = 0.0f;
 
         for(int i = -radius; i <= radius; i++) {
             for(int j = -radius; j <= radius; j++) {
@@ -278,10 +279,16 @@ public class Filter {
                             mask[index] += mask_gaussian[index + jj + ii * length]
                                     * mask_laplacian[inner_index];
                         }
+                        inner_index++;
                     }
                 }
+                sum += mask[index];
                 index++;
             }
+        }
+
+        for(int i = 0; i < index; i++) {
+            mask[i] /= sum;
         }
 
         return mask;
