@@ -115,7 +115,8 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         float ratio_width, ratio_height;
         int display_width, display_height;
 
-        this.image = this.filter.getCurrent().copy(this.filter.getCurrent().getConfig(), true);
+        this.filter.copyCurrent(this.image);
+        //this.image = this.filter.getCurrent().copy(this.filter.getCurrent().getConfig(), true);
         // here display the whole image, modify if part of image would be focused(zoom in)
         // then the target would be this.image_rendered
         ratio_width = (float)this.imageview_canvas.getWidth() / (float)this.image.getWidth();
@@ -147,7 +148,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         LinearLayout content_dialog;
         final EditText[] edit_items;
 
-        String[] item_channels = {"all channels", "red", "green", "blue", "alpha"};
+        String[] item_channels = {"Gray scale", "Red", "Green", "Blue"};
         ArrayAdapter<String> adapter_channels = new ArrayAdapter<String>(this,
                 android.R.layout.simple_spinner_item, item_channels);
         final Spinner spinner_channels = new Spinner(this);
@@ -180,7 +181,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
                         float scaling_factor = 1.0f;
-                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1;
+                        int id_channel = (int)spinner_channels.getSelectedItemId();
                         boolean if_input_correct = true;
 
                         if(edit_items[0].getText().toString().length() > 0) {
@@ -204,6 +205,8 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             case "up_pyramid":
                 this.filter.doUpPyramid();
                 this.filter.waitTillEnd();
+                this.image = ThumbnailUtils.extractThumbnail(this.image,
+                        this.image.getWidth() / 2, this.image.getHeight() / 2);
                 this.displayImage();
                 break;
             case "gaussian":
@@ -229,7 +232,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int radius = 2, id_channel = (int)spinner_channels.getSelectedItemId() - 1;
+                        int radius = 2, id_channel = (int)spinner_channels.getSelectedItemId();
                         float sigma = 1.0f;
                         boolean if_input_correct = true;
                         if(edit_items[0].getText().toString().length() > 0) {
@@ -277,7 +280,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1;
+                        int id_channel = (int)spinner_channels.getSelectedItemId();
                         float scaling_factor = 1.0f;
                         boolean if_input_correct = true;
 
@@ -326,7 +329,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1, radius = 2;
+                        int id_channel = (int)spinner_channels.getSelectedItemId(), radius = 2;
                         float sigma_gaussian = 1.0f, scaling_factor = 1.0f;
                         boolean if_input_correct = true;
 
@@ -391,7 +394,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1, radius = 2;
+                        int id_channel = (int)spinner_channels.getSelectedItemId(), radius = 2;
                         float sigma_spatial = 1.0f, sigma_range = 1.0f;
                         boolean if_input_correct = true;
 
@@ -448,7 +451,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1, radius = 2;
+                        int id_channel = (int)spinner_channels.getSelectedItemId(), radius = 2;
                         boolean if_input_correct = true;
 
                         if(edit_items[0].getText().toString().length() > 0) {
@@ -488,7 +491,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = (int)spinner_channels.getSelectedItemId() - 1;
+                        int id_channel = (int)spinner_channels.getSelectedItemId();
                         float thredshold = 0.5f;
                         boolean if_input_correct = true;
 

@@ -37,8 +37,10 @@ public class Filter {
 
     private Allocation allocation_in;
     private Allocation allocation_out;
+    private Allocation allocation_context;
 
-    private boolean if_colorful;
+    private int id_channel;
+    private int height, width;
 
     private final ReentrantLock lock = new ReentrantLock();
 
@@ -48,13 +50,22 @@ public class Filter {
     }
 
     public void setData(Bitmap source) {
-        this.data = source.copy(source.getConfig(), true);
-        this.data_out = source.copy(source.getConfig(), true);
+        this.data = null;
+        //this.data_out = source.copy(source.getConfig(), true);
+        this.data_out = null;
+        Bitmap image0 = source.copy(source.getConfig(), true);
+        Bitmap image1 = source.copy(source.getConfig(), true);
+        Bitmap image2 = source.copy(source.getConfig(), true);
 
-        this.allocation_in = Allocation.createFromBitmap(this.render_script, this.data);
-        this.allocation_out = Allocation.createFromBitmap(this.render_script, this.data_out);
+        this.allocation_in = Allocation.createFromBitmap(this.render_script, image0);
+        this.allocation_out = Allocation.createFromBitmap(this.render_script, image1);
+        this.allocation_context = Allocation.createFromBitmap(this.render_script, image2);
 
-        this.if_colorful = true;
+        this.height = source.getHeight();
+        this.width = source.getWidth();
+
+        // negative: unassigned
+        this.id_channel = -1;
     }
 
     public void resetData() {
@@ -62,14 +73,34 @@ public class Filter {
         this.data_out = null;
         this.allocation_in = null;
         this.allocation_out = null;
+        this.allocation_context = null;
+    }
+
+    public void preprecess(int index) {
+        // init
+        if(this.id_channel < 0) {
+            this.script.set_index_channel(index);
+            this.allocation_context.copyFrom(this.allocation_in);
+            this.script.forEach_encode(this.allocation_context, this.allocation_in);
+        }
+        // switch channel
+        else if(this.id_channel != index) {
+            this.script.set_context(this.allocation_context);
+            this.script.set_index_channel(this.id_channel);
+            this.script.forEach_decode(this.allocation_in, this.allocation_out);
+            this.script.set_index_channel(index);
+            this.script.forEach_encode(this.allocation_out, this.allocation_in);
+        }
+
+        this.id_channel = index;
     }
 
     public void doRGB2BW() {
         this.lock.lock();
 
         this.script.forEach_rgb_to_bw(this.allocation_in, this.allocation_out);
-        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
-        this.if_colorful = false;
+        this.script.forEach_copy(this.allocation_out, this.allocation_in);
+        this.script.forEach_copy(this.allocation_out, this.allocation_context);
 
         this.lock.unlock();
     }
@@ -77,77 +108,86 @@ public class Filter {
     public void doRescale(float scale, int idChannel) {
         this.lock.lock();
 
-        this.script.set_if_bw(!this.if_colorful);
-        this.script.set_index_channel(idChannel);
+        this.preprecess(idChannel);
+
         this.script.set_scale(scale);
         this.script.forEach_rescale(this.allocation_in, this.allocation_out);
-        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_copy(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
 
     public void doUpPyramid() {
-        int width = this.data.getWidth(), height = this.data.getHeight();
         this.lock.lock();
 
+        Bitmap.Config conf = Bitmap.Config.ARGB_8888;
+        Bitmap image0 = Bitmap.createBitmap(this.width / 2, this.height / 2, conf);
+        Bitmap image1 = Bitmap.createBitmap(this.width / 2, this.height / 2, conf);
+        Bitmap image2 = Bitmap.createBitmap(this.width / 2, this.height / 2, conf);
+
+        this.script.set_index_channel(this.id_channel);
         this.script.set_context(this.allocation_in);
-        this.data = null;
-        this.data = Bitmap.createBitmap(width / 2, height / 2, this.data_out.getConfig());
-        this.data_out = null;
-        this.data_out = Bitmap.createBitmap(width / 2, height / 2, this.data.getConfig());
-        this.allocation_in = Allocation.createFromBitmap(this.render_script, this.data);
-        this.allocation_out = Allocation.createFromBitmap(this.render_script, this.data_out);
+        this.allocation_in = Allocation.createFromBitmap(this.render_script, image0);
+        this.allocation_out = Allocation.createFromBitmap(this.render_script, image1);
         this.script.forEach_up_pyramid(this.allocation_in, this.allocation_out);
-        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_copy(this.allocation_out, this.allocation_in);
+
+        this.width /= 2;
+        this.height /= 2;
+
+        this.allocation_context = Allocation.createFromBitmap(this.render_script, image2);
 
         this.lock.unlock();
     }
 
     public void doGaussian(int radius, int idChannel, float sigma) {
+        this.lock.lock();
+
         float[] mask = this.createGaussianMask(radius, sigma);
         Allocation allocation_mask = Allocation.createSized(this.render_script,
                 Element.F32(this.render_script), mask.length);
         allocation_mask.copyFrom(mask);
 
-        this.lock.lock();
+        this.preprecess(idChannel);
 
         this.script.set_scale(1.0f);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocation_in);
-        this.script.set_height(this.data.getHeight());
-        this.script.set_width(this.data.getWidth());
-        this.script.set_if_bw(!this.if_colorful);
-        this.script.set_index_channel(idChannel);
+        this.script.set_height(this.height);
+        this.script.set_width(this.width);
         this.script.set_radius(radius);
         this.script.forEach_gaussian(this.allocation_in, this.allocation_out);
-        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_copy(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
 
     public void doLaplacian(int idChannel, float scale) {
+        this.lock.lock();
+
         float[] mask = this.createLaplacianMask();
         Allocation allocation_mask = Allocation.createSized(this.render_script,
                 Element.F32(this.render_script), mask.length);
         allocation_mask.copyFrom(mask);
 
-        this.lock.lock();
+        this.preprecess(idChannel);
 
         this.script.set_scale(scale);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocation_in);
-        this.script.set_height(this.data.getHeight());
-        this.script.set_width(this.data.getWidth());
-        this.script.set_if_bw(!this.if_colorful);
+        this.script.set_height(this.height);
+        this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(1);
         this.script.forEach_gaussian(this.allocation_in, this.allocation_out);
-        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_copy(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
 
     public void doGaussianLaplacian(int radius, int idChannel, float sigma, float scale) {
+        this.lock.lock();
+
         float[] mask = this.createGaussianLaplacianMask(radius, sigma);
         for(int i = 0; i < mask.length; i++) {
             mask[i] *= scale;
@@ -156,18 +196,17 @@ public class Filter {
                 Element.F32(this.render_script), mask.length);
         allocation_mask.copyFrom(mask);
 
-        this.lock.lock();
+        this.preprecess(idChannel);
 
         this.script.set_scale(1.0f);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocation_in);
-        this.script.set_height(this.data.getHeight());
-        this.script.set_width(this.data.getWidth());
-        this.script.set_if_bw(!this.if_colorful);
+        this.script.set_height(this.height);
+        this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
         this.script.forEach_gaussian(this.allocation_in, this.allocation_out);
-        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_copy(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
@@ -175,37 +214,38 @@ public class Filter {
     public void doMean(int radius, int idChannel) {
         this.lock.lock();
 
+        this.preprecess(idChannel);
+
         this.script.set_context(this.allocation_in);
-        this.script.set_height(this.data.getHeight());
-        this.script.set_width(this.data.getWidth());
-        this.script.set_if_bw(!this.if_colorful);
-        this.script.set_index_channel(idChannel);
+        this.script.set_height(this.height);
+        this.script.set_width(this.width);
         this.script.set_radius(radius);
         this.script.forEach_mean(this.allocation_in, this.allocation_out);
-        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_copy(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
 
     public void doBilateral(int radius, int idChannel, float sigma_spatial, float sigma_range) {
+        this.lock.lock();
+
         float[] mask = this.createGaussianMask(radius, sigma_spatial);
         Allocation allocation_mask = Allocation.createSized(this.render_script,
                 Element.F32(this.render_script), mask.length);
         allocation_mask.copyFrom(mask);
 
-        this.lock.lock();
+        this.preprecess(idChannel);
 
         this.script.set_scale(1.0f);
         this.script.set_threshold_value(2.0f * sigma_range * sigma_range);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocation_in);
-        this.script.set_height(this.data.getHeight());
-        this.script.set_width(this.data.getWidth());
-        this.script.set_if_bw(!this.if_colorful);
+        this.script.set_height(this.height);
+        this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
         this.script.forEach_bilateral(this.allocation_in, this.allocation_out);
-        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_copy(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
@@ -213,22 +253,24 @@ public class Filter {
     public void doThreshold(int idChannel, float thresholdValue) {
         this.lock.lock();
 
+        this.preprecess(idChannel);
+
         this.script.set_threshold_value(thresholdValue);
-        this.script.set_if_bw(!this.if_colorful);
         this.script.set_index_channel(idChannel);
         this.script.forEach_threshold(this.allocation_in, this.allocation_out);
-        this.script.forEach_out_to_in(this.allocation_out, this.allocation_in);
+        this.script.forEach_copy(this.allocation_out, this.allocation_in);
 
         this.lock.unlock();
     }
 
-    //public void getOutput() {
-    //    this.allocation_out.copyTo(this.data);
-    //}
-
-    public Bitmap getCurrent() {
-        this.allocation_out.copyTo(this.data_out);
-        return this.data_out;
+    public void copyCurrent(Bitmap image) {
+        if(this.id_channel >= 0) {
+            this.allocation_context = Allocation.createFromBitmap(this.render_script, image);
+            this.script.set_index_channel(this.id_channel);
+            this.script.set_context(this.allocation_context);
+            this.script.forEach_decode(this.allocation_in, this.allocation_out);
+        }
+        this.allocation_out.copyTo(image);
     }
 
     public String[] getFilterNames () {
