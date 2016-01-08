@@ -32,8 +32,6 @@ public class Filter {
 
     private RenderScript render_script;
     private ScriptC_imgproc script;
-    private Bitmap data;
-    private Bitmap data_out;
 
     private Allocation allocation_in;
     private Allocation allocation_out;
@@ -50,9 +48,6 @@ public class Filter {
     }
 
     public void setData(Bitmap source) {
-        this.data = null;
-        //this.data_out = source.copy(source.getConfig(), true);
-        this.data_out = null;
         Bitmap image0 = source.copy(source.getConfig(), true);
         Bitmap image1 = source.copy(source.getConfig(), true);
         Bitmap image2 = source.copy(source.getConfig(), true);
@@ -69,8 +64,6 @@ public class Filter {
     }
 
     public void resetData() {
-        this.data = null;
-        this.data_out = null;
         this.allocation_in = null;
         this.allocation_out = null;
         this.allocation_context = null;
@@ -259,6 +252,8 @@ public class Filter {
         this.script.set_index_channel(idChannel);
         this.script.forEach_threshold(this.allocation_in, this.allocation_out);
         this.script.forEach_copy(this.allocation_out, this.allocation_in);
+
+        this.id_channel = 0;
 
         this.lock.unlock();
     }
