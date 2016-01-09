@@ -22,8 +22,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Scanner;
 
 /*
  *
@@ -222,8 +224,17 @@ public class Gallerie extends Activity implements View.OnClickListener {
                 in.putExtra("path", file.getAbsolutePath());
                 startActivity(in);
             }
+            else if(suffix.compareTo(".func") == 0) {
+                try {
+                    Scanner reader = new Scanner(file);
+                    String string_data = reader.nextLine();
+                    this.alert(string_data);
+                } catch (FileNotFoundException e) {
+                    this.alert("File not found");
+                }
+            }
             else {
-                this.alert("Not supported image file\n(png, jpg, dng, tiff)");
+                this.alert("File not supported");
             }
         }
     }
