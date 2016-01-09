@@ -6,6 +6,13 @@ import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.Scanner;
 import java.util.concurrent.locks.ReentrantLock;
 
 /*
@@ -26,6 +33,18 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  */
 public class Filter {
+    private class FilterItem {
+        public String filter_name;
+        public int[] int_params;
+        public float[] float_params;
+
+        public FilterItem(String name, int num_int, int num_float) {
+            this.int_params = new int[num_int];
+            this.float_params = new float[num_float];
+            this.filter_name = name;
+        }
+    }
+
     private String[] available_filters = {"rgb_to_bw", "rescale", "up_pyramid",
             "gaussian", "laplacian", "gaussian_laplacian", "mean", "bilateral",
             "threshold"};
@@ -41,10 +60,14 @@ public class Filter {
     private int height, width;
 
     private final ReentrantLock lock = new ReentrantLock();
+    private final ReentrantLock lock_batch = new ReentrantLock();
+
+    private FilterItem[] batch_items;
 
     public Filter(Context context) {
         this.render_script = RenderScript.create(context);
         this.script = new ScriptC_imgproc(render_script);
+        this.batch_items = null;
     }
 
     public void setData(Bitmap source) {
@@ -67,6 +90,7 @@ public class Filter {
         this.allocation_in = null;
         this.allocation_out = null;
         this.allocation_context = null;
+        this.batch_items = null;
     }
 
     public void preprecess(int index) {
@@ -334,5 +358,122 @@ public class Filter {
     public void waitTillEnd() {
         this.lock.lock();
         this.lock.unlock();
+    }
+
+    public int loadBatch(File file) {
+        int result = 0;
+        try {
+            Scanner reader = new Scanner(file);
+            String string_data = reader.nextLine();
+            JSONArray json_parser = new JSONArray(string_data);
+
+            int num_filter = json_parser.length();
+            this.batch_items = new FilterItem[num_filter];
+            for(int i = 0; i < num_filter; i++) {
+                String name;
+                JSONObject json_obj = json_parser.getJSONObject(i);
+                name = json_obj.optString("name");
+                switch (name) {
+                    case "rgb_to_bw":
+                    case "up_pyramid":
+                        this.batch_items[i] = new FilterItem(name, 0, 0);
+                        break;
+                    case "rescale":
+                        this.batch_items[i] = new FilterItem(name, 1, 1);
+                        this.batch_items[i].int_params[0] = json_obj.getInt("channel");
+                        this.batch_items[i].float_params[0] = (float)json_obj.getDouble("scaling_factor");
+                        break;
+                    case "gaussian":
+                        this.batch_items[i] = new FilterItem(name, 2, 1);
+                        this.batch_items[i].int_params[0] = json_obj.getInt("channel");
+                        this.batch_items[i].int_params[1] = json_obj.getInt("radius");
+                        this.batch_items[i].float_params[0] = (float)json_obj.getDouble("sigma");
+                        break;
+                    case "laplacian":
+                        this.batch_items[i] = new FilterItem(name, 1, 1);
+                        this.batch_items[i].int_params[0] = json_obj.getInt("channel");
+                        this.batch_items[i].float_params[0] = (float)json_obj.getDouble("scaling_factor");
+                        break;
+                    case "gaussian_laplacian":
+                        this.batch_items[i] = new FilterItem(name, 2, 2);
+                        this.batch_items[i].int_params[0] = json_obj.getInt("channel");
+                        this.batch_items[i].int_params[1] = json_obj.getInt("radius");
+                        this.batch_items[i].float_params[0] = (float)json_obj.getDouble("sigma");
+                        this.batch_items[i].float_params[0] = (float)json_obj.getDouble("scaling_factor");
+                        break;
+                    case "mean":
+                        this.batch_items[i] = new FilterItem(name, 2, 0);
+                        this.batch_items[i].int_params[0] = json_obj.getInt("channel");
+                        this.batch_items[i].int_params[1] = json_obj.getInt("radius");
+                    case "bilateral":
+                        this.batch_items[i] = new FilterItem(name, 2, 2);
+                        this.batch_items[i].int_params[0] = json_obj.getInt("channel");
+                        this.batch_items[i].int_params[1] = json_obj.getInt("radius");
+                        this.batch_items[i].float_params[0] = (float)json_obj.getDouble("sigma_range");
+                        this.batch_items[i].float_params[1] = (float)json_obj.getDouble("sigma_spatial");
+                        break;
+                    case "threshold":
+                        this.batch_items[i] = new FilterItem(name, 1, 1);
+                        this.batch_items[i].int_params[0] = json_obj.getInt("channel");
+                        this.batch_items[i].float_params[0] = (float)json_obj.getDouble("threshold");
+                        break;
+                    default:
+                        this.batch_items[i] = new FilterItem("idle", 1, 1);
+                        break;
+                }
+            }
+        } catch (FileNotFoundException e) {
+            result = 100;
+        } catch (JSONException e) {
+            result = 200;
+        }
+        return result;
+    }
+
+    public void doBatch() {
+        this.lock_batch.lock();
+
+        if(this.batch_items != null) {
+            for(FilterItem item : this.batch_items) {
+                switch (item.filter_name) {
+                    case "rgb_to_bw":
+                    case "up_pyramid":
+                        this.doRGB2BW();
+                        break;
+                    case "rescale":
+                        this.doRescale(item.float_params[0], item.int_params[0]);
+                        break;
+                    case "gaussian":
+                        this.doGaussian(item.int_params[1], item.int_params[0], item.float_params[0]);
+                        break;
+                    case "laplacian":
+                        this.doLaplacian(item.int_params[0], item.float_params[0]);
+                        break;
+                    case "gaussian_laplacian":
+                        this.doGaussianLaplacian(item.int_params[1], item.int_params[0],
+                                item.float_params[0], item.float_params[1]);
+                        break;
+                    case "mean":
+                        this.doMean(item.int_params[1], item.int_params[0]);
+                        break;
+                    case "bilateral":
+                        this.doBilateral(item.int_params[1], item.int_params[0],
+                                item.float_params[1], item.float_params[0]);
+                        break;
+                    case "threshold":
+                        this.doThreshold(item.int_params[0], item.float_params[0]);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+        this.lock_batch.unlock();
+    }
+
+    public void waitTillBatchEnd() {
+        this.lock_batch.lock();
+        this.lock_batch.unlock();
     }
 }
