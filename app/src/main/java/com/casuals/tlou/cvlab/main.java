@@ -17,6 +17,7 @@ import java.io.File;
 
 import com.casuals.tlou.cvlab.camera.Camera;
 import com.casuals.tlou.cvlab.imgproc.Gallerie;
+import com.casuals.tlou.cvlab.stream.LiveStream;
 
 /*
  * Copyright 2016 Tongxi Lou
@@ -38,6 +39,7 @@ public class main extends Activity implements View.OnClickListener {
 
     private Button button_camera;
     private Button button_swissknife;
+    private Button button_livestream;
     private Button button_about;
 
     private void prepDir() {
@@ -75,10 +77,12 @@ public class main extends Activity implements View.OnClickListener {
 
         this.button_camera = (Button)findViewById(R.id.button_camera);
         this.button_swissknife = (Button)findViewById(R.id.button_swissknife);
+        this.button_livestream = (Button)findViewById(R.id.button_livestream);
         this.button_about = (Button)findViewById(R.id.button_about);
 
         this.button_camera.setOnClickListener(this);
         this.button_swissknife.setOnClickListener(this);
+        this.button_livestream.setOnClickListener(this);
         this.button_about.setOnClickListener(this);
     }
 
@@ -93,6 +97,11 @@ public class main extends Activity implements View.OnClickListener {
 
             case R.id.button_swissknife:
                 in = new Intent(this, Gallerie.class);
+                startActivity(in);
+                break;
+
+            case R.id.button_livestream:
+                in = new Intent(this, LiveStream.class);
                 startActivity(in);
                 break;
 

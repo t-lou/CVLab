@@ -40,6 +40,12 @@
                 android:text="Camera"
                 android:id="@+id/button_camera" />
 
+            <Button
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Live"
+                android:id="@+id/button_livestream" />
+
         </LinearLayout>
 
         <LinearLayout

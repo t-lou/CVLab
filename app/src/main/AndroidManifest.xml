@@ -28,7 +28,8 @@
         </activity>
         <activity android:name=".camera.Camera" />
         <activity android:name=".imgproc.SwissKnife" />
-        <activity android:name=".imgproc.Gallerie"></activity>
+        <activity android:name=".imgproc.Gallerie" />
+        <activity android:name=".stream.LiveStream"></activity>
     </application>
 
 </manifest>
