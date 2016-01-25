@@ -385,6 +385,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
                 public void run() {
                     // real processing part
                     filter.doBatch();
+                    filter.waitTillBatchEnd();
                     filter.copyCurrent(current_image);
                     canvas.setImageBitmap(current_image);
                 }
@@ -497,6 +498,11 @@ public class LiveStream extends Activity implements View.OnClickListener {
                         File script_file = new File(Environment.getExternalStorageDirectory()
                                 + getString(R.string.script_dir) + "/" + str);
                         filter.loadBatch(script_file);
+                    }
+                });
+                dialog_builder.setNegativeButton("Do Nothing", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        filter.resetBatch();
                     }
                 });
 

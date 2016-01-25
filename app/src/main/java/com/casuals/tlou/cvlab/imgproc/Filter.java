@@ -2,9 +2,13 @@ package com.casuals.tlou.cvlab.imgproc;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.ImageFormat;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
+import android.renderscript.Type;
+import android.util.Size;
+import android.view.Surface;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -81,9 +85,24 @@ public class Filter {
 
         this.height = source.getHeight();
         this.width = source.getWidth();
+    }
 
-        // negative: unassigned
-        this.id_channel = -1;
+    public void createDataForVideo(Size size) {
+        Type.Builder tb = new Type.Builder(this.render_script, Element.createPixel(this.render_script,
+            Element.DataType.UNSIGNED_8, Element.DataKind.PIXEL_YUV));
+        tb.setX(size.getWidth());
+        tb.setY(size.getHeight());
+        tb.setYuvFormat(ImageFormat.YUV_420_888);
+        this.allocation_in = Allocation.createTyped(this.render_script, tb.create(), Allocation.USAGE_IO_INPUT);
+        this.allocation_out = Allocation.createTyped(this.render_script, tb.create());
+        this.allocation_context = Allocation.createTyped(this.render_script, tb.create());
+
+        this.height = size.getHeight();
+        this.width = size.getWidth();
+    }
+
+    public Surface getInputSurface() {
+        return this.allocation_in.getSurface();
     }
 
     public void resetData() {
@@ -91,6 +110,9 @@ public class Filter {
         this.allocation_out = null;
         this.allocation_context = null;
         this.batch_items = null;
+
+        // negative: unassigned
+        this.id_channel = -1;
     }
 
     public void preprecess(int index) {
@@ -470,6 +492,10 @@ public class Filter {
         }
 
         this.lock_batch.unlock();
+    }
+
+    public void resetBatch() {
+        this.batch_items = null;
     }
 
     public void waitTillBatchEnd() {
