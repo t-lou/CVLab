@@ -25,7 +25,9 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
+import android.graphics.YuvImage;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -52,11 +54,13 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
+import android.widget.TextView;
 
 import com.casuals.tlou.cvlab.R;
 import com.casuals.tlou.cvlab.imgproc.Filter;
 import com.casuals.tlou.cvlab.main;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -69,7 +73,10 @@ import java.util.concurrent.TimeUnit;
 
 public class LiveStream extends Activity implements View.OnClickListener {
 
+    private TextView debug;
+
     private Size size_preview;
+    private Size size_image;
     private TextureView camera_preview;
     private ImageView canvas;
     private Bitmap current_image;
@@ -226,7 +233,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
         scale_y /= scaler;
 
         tf.setScale(scale_x, scale_y);
-        camera_preview.setTransform(tf);
+        this.camera_preview.setTransform(tf);
     }
 
     private void setupCamera(int width, int height) {
@@ -241,25 +248,19 @@ public class LiveStream extends Activity implements View.OnClickListener {
                         this.camera_id_default = str;
                         config = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
 
-                        Size largestImageSize = Collections.max(
-                                Arrays.asList(config.getOutputSizes(ImageFormat.JPEG)),
-                                new Comparator<Size>() {
-                                    @Override
-                                    public int compare(Size lhs, Size rhs) {
-                                        return Long.signum(lhs.getWidth() * lhs.getHeight() -
-                                                rhs.getWidth() * rhs.getHeight());
-                                    }
-                                }
-                        );
-                        this.image_reader = ImageReader.newInstance(largestImageSize.getWidth(),
-                                largestImageSize.getHeight(),
-                                ImageFormat.JPEG,
+                        this.size_preview = this.getPreferedPreviewSize(
+                                config.getOutputSizes(SurfaceTexture.class), width, height);
+                        this.size_image = this.getPreferedPreviewSize(
+                                config.getOutputSizes(SurfaceTexture.class),
+                                this.canvas.getWidth(), this.canvas.getHeight());
+
+                        this.image_reader = ImageReader.newInstance(
+                                this.size_image.getWidth(), this.size_image.getHeight(),
+                                ImageFormat.YUV_420_888,
                                 1);
                         this.image_reader.setOnImageAvailableListener(this.image_reader_listener,
                                 background_handler);
 
-                        this.size_preview = this.getPreferedPreviewSize(
-                                config.getOutputSizes(SurfaceTexture.class), width, height);
                         this.setPreviewTransform(width, height);
                     }
                 }
@@ -374,19 +375,25 @@ public class LiveStream extends Activity implements View.OnClickListener {
         @Override
         public void run() {
             ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-            byte[] bytes = new byte[buffer.remaining()];
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inSampleSize = camera_upsample_level;
+            final byte[] bytes = new byte[buffer.remaining()];
             buffer.get(bytes);
-            current_image = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
+
+            YuvImage yuvimage = new YuvImage(bytes, ImageFormat.NV21, size_image.getWidth(), size_image.getHeight(), null);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            yuvimage.compressToJpeg(new Rect(0, 0, size_image.getWidth(), size_image.getHeight()), 80, baos);
+            byte[] jdata = baos.toByteArray();
+            BitmapFactory.Options bitmapFatoryOptions = new BitmapFactory.Options();
+            bitmapFatoryOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;
+
+            current_image = BitmapFactory.decodeByteArray(jdata, 0, jdata.length, bitmapFatoryOptions);
             filter.setData(current_image);
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     // real processing part
-                    filter.doBatch();
-                    filter.waitTillBatchEnd();
-                    filter.copyCurrent(current_image);
+                    //filter.doBatch();
+                    //filter.waitTillBatchEnd();
+                    //filter.copyCurrent(current_image);
                     canvas.setImageBitmap(current_image);
                 }
             });
@@ -406,7 +413,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
     private void captureStillImage() {
         try {
             final CaptureRequest.Builder capture_builder =
-                    this.camera_dev.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                    this.camera_dev.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             capture_builder.addTarget(this.image_reader.getSurface());
             capture_builder.set(CaptureRequest.CONTROL_AF_MODE,
                     CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
@@ -448,6 +455,8 @@ public class LiveStream extends Activity implements View.OnClickListener {
         this.canvas = (ImageView)findViewById(R.id.imageview_livestream_canvas);
         this.camera_upsample_level = 3;
         this.filter = new Filter(this);
+
+        this.debug = (TextView)findViewById(R.id.textView);
     }
 
     @Override
