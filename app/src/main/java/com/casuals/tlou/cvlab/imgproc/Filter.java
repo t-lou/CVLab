@@ -6,6 +6,7 @@ import android.graphics.ImageFormat;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
+import android.renderscript.ScriptIntrinsicYuvToRGB;
 import android.renderscript.Type;
 import android.util.Size;
 import android.view.Surface;
@@ -59,6 +60,10 @@ public class Filter {
     private Allocation allocation_in;
     private Allocation allocation_out;
     private Allocation allocation_context;
+    private Allocation allocation_input_yuv;
+    private Allocation allocation_output_rgba;
+
+    private ScriptIntrinsicYuvToRGB yuv_rgba_convertor;
 
     private int id_channel;
     private int height, width;
@@ -72,6 +77,12 @@ public class Filter {
         this.render_script = RenderScript.create(context);
         this.script = new ScriptC_imgproc(render_script);
         this.batch_items = null;
+
+        this.allocation_output_rgba = null;
+        this.allocation_input_yuv = null;
+        this.allocation_out = null;
+        this.allocation_in = null;
+        this.allocation_context = null;
     }
 
     public void setData(Bitmap source) {
@@ -87,22 +98,46 @@ public class Filter {
         this.width = source.getWidth();
     }
 
-    public void createDataForVideo(Size size) {
-        Type.Builder tb = new Type.Builder(this.render_script, Element.createPixel(this.render_script,
-            Element.DataType.UNSIGNED_8, Element.DataKind.PIXEL_YUV));
-        tb.setX(size.getWidth());
-        tb.setY(size.getHeight());
-        tb.setYuvFormat(ImageFormat.YUV_420_888);
-        this.allocation_in = Allocation.createTyped(this.render_script, tb.create(), Allocation.USAGE_IO_INPUT);
-        this.allocation_out = Allocation.createTyped(this.render_script, tb.create());
-        this.allocation_context = Allocation.createTyped(this.render_script, tb.create());
+    public void setDataFromYUV(byte[] data) {
+        this.lock.lock();
+        this.allocation_input_yuv.copyFrom(data);
+        this.yuv_rgba_convertor.setInput(this.allocation_input_yuv);
+        this.yuv_rgba_convertor.forEach(this.allocation_output_rgba);
+        this.script.set_context(this.allocation_output_rgba);
+        this.script.forEach_transpose(this.allocation_in, this.allocation_out);
+        this.script.forEach_copy(this.allocation_out, this.allocation_in);
+        this.lock.unlock();
+    }
 
-        this.height = size.getHeight();
-        this.width = size.getWidth();
+    public void prepareForYUV(Size size) {
+        this.width = size.getHeight();
+        this.height = size.getWidth();
+
+        this.yuv_rgba_convertor = ScriptIntrinsicYuvToRGB.create(this.render_script,
+                Element.RGBA_8888(this.render_script));
+
+        Type.Builder type_yuv = new Type.Builder(this.render_script, Element.U8(this.render_script))
+                .setX(this.height).setY(this.width).setYuvFormat(ImageFormat.NV21);
+        this.allocation_input_yuv = Allocation.createTyped(this.render_script,
+                type_yuv.create(), Allocation.USAGE_SCRIPT);
+
+        Type.Builder type_rgba = new Type.Builder(this.render_script,
+                Element.RGBA_8888(this.render_script)).setX(this.height).setY(this.width);
+        this.allocation_output_rgba = Allocation.createTyped(this.render_script,
+                type_rgba.create(), Allocation.USAGE_SCRIPT);
+
+        type_rgba = new Type.Builder(this.render_script,
+                Element.RGBA_8888(this.render_script)).setX(this.width).setY(this.height);
+        this.allocation_in = Allocation.createTyped(this.render_script,
+                type_rgba.create(), Allocation.USAGE_SCRIPT);
+        this.allocation_out = Allocation.createTyped(this.render_script,
+                type_rgba.create(), Allocation.USAGE_SCRIPT);
+        this.allocation_context = Allocation.createTyped(this.render_script,
+                type_rgba.create(), Allocation.USAGE_SCRIPT);
     }
 
     public Surface getInputSurface() {
-        return this.allocation_in.getSurface();
+        return this.allocation_input_yuv.getSurface();
     }
 
     public void resetData() {
@@ -312,6 +347,10 @@ public class Filter {
             this.script.forEach_decode(this.allocation_in, this.allocation_out);
         }
         this.allocation_out.copyTo(image);
+    }
+
+    public void copyRGBA(Bitmap image) {
+        this.allocation_output_rgba.copyTo(image);
     }
 
     public String[] getFilterNames () {

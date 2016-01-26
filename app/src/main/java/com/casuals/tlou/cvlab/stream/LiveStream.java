@@ -22,12 +22,9 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
-import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
-import android.graphics.YuvImage;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -60,7 +57,6 @@ import com.casuals.tlou.cvlab.R;
 import com.casuals.tlou.cvlab.imgproc.Filter;
 import com.casuals.tlou.cvlab.main;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -261,6 +257,10 @@ public class LiveStream extends Activity implements View.OnClickListener {
                         this.image_reader.setOnImageAvailableListener(this.image_reader_listener,
                                 background_handler);
 
+                        this.filter.prepareForYUV(this.size_image);
+                        this.current_image = Bitmap.createBitmap(this.size_image.getHeight(),
+                                this.size_image.getWidth(), Bitmap.Config.ARGB_8888);
+
                         this.setPreviewTransform(width, height);
                     }
                 }
@@ -372,28 +372,65 @@ public class LiveStream extends Activity implements View.OnClickListener {
         private ImageSaver(Image image_local) {
             image = image_local;
         }
+        /*private int convertYUVtoRGB(int y, int u, int v) {
+            int r,g,b;
+
+            r = y + (int)1.402f*v;
+            g = y - (int)(0.344f*u +0.714f*v);
+            b = y + (int)1.772f*u;
+            r = r>255? 255 : r<0 ? 0 : r;
+            g = g>255? 255 : g<0 ? 0 : g;
+            b = b>255? 255 : b<0 ? 0 : b;
+            return 0xFF000000 | (r<<16) | (g<<8) | (b<<0);
+        }*/
         @Override
         public void run() {
-            ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-            final byte[] bytes = new byte[buffer.remaining()];
-            buffer.get(bytes);
+            ByteBuffer buffer_y = image.getPlanes()[0].getBuffer();
+            ByteBuffer buffer_u = image.getPlanes()[1].getBuffer();
+            ByteBuffer buffer_v = image.getPlanes()[2].getBuffer();
+            int len_y = buffer_y.remaining(), len_u = buffer_u.remaining(), len_v = buffer_v.remaining();
+            byte[] bytes = new byte[len_y + len_u + len_v];
+            buffer_y.get(bytes, 0, len_y);
+            buffer_u.get(bytes, len_y, len_u);
+            buffer_v.get(bytes, len_y + len_u, len_v);
 
-            YuvImage yuvimage = new YuvImage(bytes, ImageFormat.NV21, size_image.getWidth(), size_image.getHeight(), null);
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            yuvimage.compressToJpeg(new Rect(0, 0, size_image.getWidth(), size_image.getHeight()), 80, baos);
-            byte[] jdata = baos.toByteArray();
-            BitmapFactory.Options bitmapFatoryOptions = new BitmapFactory.Options();
-            bitmapFatoryOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            filter.setDataFromYUV(bytes);
+            filter.doBatch();
+            filter.waitTillBatchEnd();
+            filter.copyCurrent(current_image);
 
-            current_image = BitmapFactory.decodeByteArray(jdata, 0, jdata.length, bitmapFatoryOptions);
-            filter.setData(current_image);
+            /*int width = size_image.getWidth();
+            int height = size_image.getHeight();
+            int size = width*height;
+            int[] pixels = new int[size];
+            int u, v, y1, y2, y3, y4;
+
+            for(int i=0, k=0; i < size; i+=2, k+=1) {
+                y1 = bytes[i  ]&0xff;
+                y2 = bytes[i+1]&0xff;
+                y3 = bytes[width+i  ]&0xff;
+                y4 = bytes[width+i+1]&0xff;
+
+                u = bytes[len_y+k+len_u]&0xff;
+                v = bytes[len_y+k]&0xff;
+                u = u-128;
+                v = v-128;
+
+                pixels[i  ] = convertYUVtoRGB(y1, u, v);
+                pixels[i+1] = convertYUVtoRGB(y2, u, v);
+                pixels[width+i  ] = convertYUVtoRGB(y3, u, v);
+                pixels[width+i+1] = convertYUVtoRGB(y4, u, v);
+
+                if (i!=0 && (i+2)%width==0)
+                    i+=width;
+            }
+            current_image = Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888);*/
+            ;
+
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     // real processing part
-                    //filter.doBatch();
-                    //filter.waitTillBatchEnd();
-                    //filter.copyCurrent(current_image);
                     canvas.setImageBitmap(current_image);
                 }
             });
@@ -455,6 +492,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
         this.canvas = (ImageView)findViewById(R.id.imageview_livestream_canvas);
         this.camera_upsample_level = 3;
         this.filter = new Filter(this);
+        this.filter.resetData();
 
         this.debug = (TextView)findViewById(R.id.textView);
     }

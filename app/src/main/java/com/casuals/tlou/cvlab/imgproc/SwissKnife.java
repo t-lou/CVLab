@@ -725,6 +725,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         this.button_undo.setOnClickListener(this);
 
         this.filter = new Filter(this);
+        this.filter.resetData();
 
         this.script_obj = new JSONArray();
         this.script_file = new File(Environment.getExternalStorageDirectory()

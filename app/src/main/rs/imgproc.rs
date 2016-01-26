@@ -161,6 +161,10 @@ uchar4 __attribute__((kernel)) decode(uchar4 in, uint32_t x, uint32_t y) {
     return rsPackColorTo8888(pixel);
 }
 
+uchar4 __attribute__((kernel)) transpose(uchar4 in, uint32_t x, uint32_t y) {
+    return rsGetElementAt_uchar4(context, y, x);
+}
+
 uchar4 __attribute__((kernel)) rgb_to_bw(uchar4 in) {
     float4 f4 = rsUnpackColor8888(in);
     float value = 0.2126f * f4.x + 0.7152f * f4.y + 0.0722f * f4.z;
