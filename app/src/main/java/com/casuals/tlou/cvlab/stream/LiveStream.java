@@ -70,6 +70,10 @@ import java.util.concurrent.TimeUnit;
 public class LiveStream extends Activity implements View.OnClickListener {
 
     private TextView debug;
+    private TextView info_display;
+    private long last_time_millisec;
+    private float[] time_intervals;
+    private int time_interval_count;
 
     private Size size_preview;
     private Size size_image;
@@ -399,6 +403,20 @@ public class LiveStream extends Activity implements View.OnClickListener {
             filter.waitTillBatchEnd();
             filter.copyCurrent(current_image);
 
+            float average_time = 0.0f;
+            long current_time_millisec = System.currentTimeMillis();
+            time_intervals[time_interval_count] = (float)(current_time_millisec - last_time_millisec) / 1000.0f;
+            last_time_millisec = current_time_millisec;
+            time_interval_count--;
+            if(time_interval_count < 0) {
+                for(int i = 0; i < 5; i++) {
+                    average_time += time_intervals[i];
+                }
+                average_time /= 5.0f;
+                time_interval_count = 4;
+            }
+            final float average_time_copy = average_time;
+
             /*int width = size_image.getWidth();
             int height = size_image.getHeight();
             int size = width*height;
@@ -432,6 +450,9 @@ public class LiveStream extends Activity implements View.OnClickListener {
                 public void run() {
                     // real processing part
                     canvas.setImageBitmap(current_image);
+                    if(average_time_copy > 0.0f) {
+                        info_display.setText(1.0f / average_time_copy + "FPS");
+                    }
                 }
             });
             image.close();
@@ -493,6 +514,12 @@ public class LiveStream extends Activity implements View.OnClickListener {
         this.camera_upsample_level = 3;
         this.filter = new Filter(this);
         this.filter.resetData();
+
+        this.info_display = (TextView)findViewById(R.id.textview_livestream_info);
+        this.info_display.setText("Here displays Information like framerate");
+        this.last_time_millisec = System.currentTimeMillis();
+        this.time_intervals = new float[5];
+        this.time_interval_count = 4;
 
         this.debug = (TextView)findViewById(R.id.textView);
     }
