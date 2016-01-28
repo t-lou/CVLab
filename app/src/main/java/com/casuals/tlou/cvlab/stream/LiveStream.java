@@ -77,12 +77,15 @@ public class LiveStream extends Activity implements View.OnClickListener {
 
     private Size size_preview;
     private Size size_image;
+    private Size[] size_image_list;
+    private String[] size_image_list_str;
     private TextureView camera_preview;
     private ImageView canvas;
     private Bitmap current_image;
     private Filter filter;
     private Button button_load_batch;
     private Button button_back;
+    private Button button_sel_resolution;
 
     private TextureView.SurfaceTextureListener camera_preview_listener
             = new TextureView.SurfaceTextureListener() {
@@ -112,7 +115,6 @@ public class LiveStream extends Activity implements View.OnClickListener {
     private String camera_id_default;
     private CameraDevice camera_dev;
     private boolean if_camera_ready_for_next;
-    private int camera_upsample_level;
     private Semaphore camera_lock = new Semaphore(1);
     private CameraDevice.StateCallback camera_dev_callback = new CameraDevice.StateCallback() {
         @Override
@@ -142,24 +144,14 @@ public class LiveStream extends Activity implements View.OnClickListener {
     private CameraCaptureSession camera_capture_session;
     private CameraCaptureSession.CaptureCallback camera_capture_session_callback
             = new CameraCaptureSession.CaptureCallback() {
-
-        private void process(CaptureResult result) {
-            if(if_camera_ready_for_next) {
-                lockFocus();
-                captureStillImage();
-            }
-        }
-
         @Override
         public void onCaptureStarted(CameraCaptureSession session, CaptureRequest request,
                                      long timestamp, long frame_number) {
             super.onCaptureStarted(session, request, timestamp, frame_number);
         }
-
         @Override
         public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request, TotalCaptureResult result) {
             super.onCaptureCompleted(session, request, result);
-            process(result);
         }
         @Override
         public void onCaptureFailed(CameraCaptureSession session, CaptureRequest request, CaptureFailure failure) {
@@ -174,11 +166,12 @@ public class LiveStream extends Activity implements View.OnClickListener {
 
             surface_texture.setDefaultBufferSize(this.size_preview.getWidth(), this.size_preview.getHeight());
 
-            Surface previewSurface = new Surface(surface_texture);
+            Surface preview_surface = new Surface(surface_texture);
             this.preview_capture_request_builder =
                     this.camera_dev.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            this.preview_capture_request_builder.addTarget(previewSurface);
-            this.camera_dev.createCaptureSession(Arrays.asList(previewSurface, image_reader.getSurface()),
+            this.preview_capture_request_builder.addTarget(preview_surface);
+            this.preview_capture_request_builder.addTarget(this.image_reader.getSurface());
+            this.camera_dev.createCaptureSession(Arrays.asList(preview_surface, this.image_reader.getSurface()),
                     new CameraCaptureSession.StateCallback() {
                         @Override
                         public void onConfigured(CameraCaptureSession session) {
@@ -253,6 +246,14 @@ public class LiveStream extends Activity implements View.OnClickListener {
                         this.size_image = this.getPreferedPreviewSize(
                                 config.getOutputSizes(SurfaceTexture.class),
                                 this.canvas.getWidth(), this.canvas.getHeight());
+                        this.size_image_list = config.getOutputSizes(SurfaceTexture.class);
+                        this.size_image_list_str = new String[this.size_image_list.length];
+                        for(int i = 0; i < this.size_image_list.length; i++) {
+                            this.size_image_list_str[i] = this.size_image_list[i].getHeight()
+                                    + "x" + this.size_image_list[i].getWidth();
+                        }
+                        this.button_sel_resolution.setText(this.size_image.getHeight()
+                                + "x" + this.size_image.getWidth());
 
                         this.image_reader = ImageReader.newInstance(
                                 this.size_image.getWidth(), this.size_image.getHeight(),
@@ -334,32 +335,6 @@ public class LiveStream extends Activity implements View.OnClickListener {
             throw new RuntimeException("Interrupted while trying to lock camera closing.", e);
         } finally {
             this.camera_lock.release();
-        }
-    }
-
-    private void lockFocus() {
-        try {
-            this.preview_capture_request_builder.set(CaptureRequest.CONTROL_AF_TRIGGER,
-                    CaptureRequest.CONTROL_AF_TRIGGER_START);
-            this.camera_capture_session.capture(this.preview_capture_request_builder.build(),
-                    this.camera_capture_session_callback, this.background_handler);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
-
-        this.if_camera_ready_for_next = false;
-    }
-
-    private void unLockFocus() {
-        try {
-            this.preview_capture_request_builder.set(CaptureRequest.CONTROL_AF_TRIGGER,
-                    CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
-            this.camera_capture_session.capture(this.preview_capture_request_builder.build(),
-                    this.camera_capture_session_callback, this.background_handler);
-            this.camera_capture_session.setRepeatingRequest(this.preview_capture_request, this.camera_capture_session_callback,
-                    this.background_handler);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
         }
     }
 
@@ -451,7 +426,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
                     // real processing part
                     canvas.setImageBitmap(current_image);
                     if(average_time_copy > 0.0f) {
-                        info_display.setText(1.0f / average_time_copy + "FPS");
+                        info_display.setText(String.format("%.2f", 1.0f / average_time_copy) + " FPS");
                     }
                 }
             });
@@ -468,32 +443,58 @@ public class LiveStream extends Activity implements View.OnClickListener {
         ORIENTATIONS.append(Surface.ROTATION_270, 180);
     }
 
-    private void captureStillImage() {
-        try {
-            final CaptureRequest.Builder capture_builder =
-                    this.camera_dev.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            capture_builder.addTarget(this.image_reader.getSurface());
-            capture_builder.set(CaptureRequest.CONTROL_AF_MODE,
-                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+    private void selectImageResolution() {
+        AlertDialog.Builder dialog_builder = new AlertDialog.Builder(this);;
+        AlertDialog dialog;
+        LinearLayout.LayoutParams layout_select_batch = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
 
-            int rotation = this.getWindowManager().getDefaultDisplay().getRotation();
-            capture_builder.set(CaptureRequest.JPEG_ORIENTATION, ORIENTATIONS.get(rotation));
+        ArrayAdapter<String> adapter_channels = new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_item, this.size_image_list_str);
+        final Spinner spinner_batches = new Spinner(this);
+        spinner_batches.setAdapter(adapter_channels);
+        spinner_batches.setLayoutParams(layout_select_batch);
 
-            CameraCaptureSession.CaptureCallback CaptureCallback
-                    = new CameraCaptureSession.CaptureCallback() {
+        dialog_builder.setTitle("Select resolution");
+        dialog_builder.setView(spinner_batches);
+        dialog_builder.setPositiveButton("Try it", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                if(size_image_list.length > 0) {
+                    int id_resolution = (int) spinner_batches.getSelectedItemId();
+                    size_image = size_image_list[id_resolution];
+                    button_sel_resolution.setText(size_image.getHeight()
+                            + "x" + size_image.getWidth());
 
-                @Override
-                public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request,
-                                               TotalCaptureResult result) {
-                    unLockFocus();
+                    filter.resetData();
+                    filter.prepareForYUV(size_image);
+                    current_image = Bitmap.createBitmap(size_image.getHeight(),
+                            size_image.getWidth(), Bitmap.Config.ARGB_8888);
+
+                    image_reader.close();
+                    image_reader = ImageReader.newInstance(
+                            size_image.getWidth(), size_image.getHeight(),
+                            ImageFormat.YUV_420_888,
+                            1);
+                    image_reader.setOnImageAvailableListener(image_reader_listener,
+                            background_handler);
+
+                    camera_capture_session.close();
+                    createCameraPreviewSession();
+
+                    info_display.setText("Here displays Information like framerate");
+                    last_time_millisec = System.currentTimeMillis();
+                    time_interval_count = 4;
                 }
-            };
 
-            this.camera_capture_session.stopRepeating();
-            this.camera_capture_session.capture(capture_builder.build(), CaptureCallback, null);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
+            }
+        });
+        dialog_builder.setNegativeButton("No", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {}
+        });
+
+        dialog = dialog_builder.create();
+        dialog.show();
     }
 
     @Override
@@ -507,11 +508,12 @@ public class LiveStream extends Activity implements View.OnClickListener {
 
         this.button_load_batch = (Button)findViewById(R.id.button_livestream_loadbatch);
         this.button_back = (Button)findViewById(R.id.button_livestream_back);
+        this.button_sel_resolution = (Button)findViewById(R.id.button_livestream_selresolution);
         this.button_load_batch.setOnClickListener(this);
         this.button_back.setOnClickListener(this);
+        this.button_sel_resolution.setOnClickListener(this);
 
         this.canvas = (ImageView)findViewById(R.id.imageview_livestream_canvas);
-        this.camera_upsample_level = 3;
         this.filter = new Filter(this);
         this.filter.resetData();
 
@@ -520,6 +522,9 @@ public class LiveStream extends Activity implements View.OnClickListener {
         this.last_time_millisec = System.currentTimeMillis();
         this.time_intervals = new float[5];
         this.time_interval_count = 4;
+
+        this.size_image_list_str = new String[0];
+        this.size_image_list = new Size[0];
 
         this.debug = (TextView)findViewById(R.id.textView);
     }
@@ -567,8 +572,8 @@ public class LiveStream extends Activity implements View.OnClickListener {
                 dialog_builder.setView(spinner_batches);
                 dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int if_file = (int) spinner_batches.getSelectedItemId();
-                        String str = entries[if_file];
+                        int id_file = (int) spinner_batches.getSelectedItemId();
+                        String str = entries[id_file];
                         File script_file = new File(Environment.getExternalStorageDirectory()
                                 + getString(R.string.script_dir) + "/" + str);
                         filter.loadBatch(script_file);
@@ -587,6 +592,10 @@ public class LiveStream extends Activity implements View.OnClickListener {
             case R.id.button_livestream_back:
                 in = new Intent(this, main.class);
                 startActivity(in);
+                break;
+
+            case R.id.button_livestream_selresolution:
+                this.selectImageResolution();
                 break;
         }
     }
