@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
@@ -48,6 +49,7 @@ import android.view.TextureView;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
@@ -79,6 +81,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
     private Size size_image;
     private Size[] size_image_list;
     private String[] size_image_list_str;
+    private boolean if_format_yuv;
     private TextureView camera_preview;
     private ImageView canvas;
     private Bitmap current_image;
@@ -114,7 +117,6 @@ public class LiveStream extends Activity implements View.OnClickListener {
     // camera dev and info
     private String camera_id_default;
     private CameraDevice camera_dev;
-    private boolean if_camera_ready_for_next;
     private Semaphore camera_lock = new Semaphore(1);
     private CameraDevice.StateCallback camera_dev_callback = new CameraDevice.StateCallback() {
         @Override
@@ -255,16 +257,24 @@ public class LiveStream extends Activity implements View.OnClickListener {
                         this.button_sel_resolution.setText(this.size_image.getHeight()
                                 + "x" + this.size_image.getWidth());
 
-                        this.image_reader = ImageReader.newInstance(
-                                this.size_image.getWidth(), this.size_image.getHeight(),
-                                ImageFormat.YUV_420_888,
-                                1);
-                        this.image_reader.setOnImageAvailableListener(this.image_reader_listener,
-                                background_handler);
+                        if(this.if_format_yuv) {
+                            this.filter.prepareForYUV(this.size_image);
+                            this.image_reader = ImageReader.newInstance(
+                                    this.size_image.getWidth(), this.size_image.getHeight(),
+                                    ImageFormat.YUV_420_888, 3);
+                        }
+                        else {
+                            this.filter.prepareForBitmap(this.size_image);
+                            this.image_reader = ImageReader.newInstance(
+                                    this.size_image.getWidth(), this.size_image.getHeight(),
+                                    ImageFormat.JPEG, 3);
+                        }
 
-                        this.filter.prepareForYUV(this.size_image);
                         this.current_image = Bitmap.createBitmap(this.size_image.getHeight(),
                                 this.size_image.getWidth(), Bitmap.Config.ARGB_8888);
+
+                        this.image_reader.setOnImageAvailableListener(this.image_reader_listener,
+                                background_handler);
 
                         this.setPreviewTransform(width, height);
                     }
@@ -364,23 +374,35 @@ public class LiveStream extends Activity implements View.OnClickListener {
         }*/
         @Override
         public void run() {
-            ByteBuffer buffer_y = image.getPlanes()[0].getBuffer();
-            ByteBuffer buffer_u = image.getPlanes()[1].getBuffer();
-            ByteBuffer buffer_v = image.getPlanes()[2].getBuffer();
-            int len_y = buffer_y.remaining(), len_u = buffer_u.remaining(), len_v = buffer_v.remaining();
-            byte[] bytes = new byte[len_y + len_u + len_v];
-            buffer_y.get(bytes, 0, len_y);
-            buffer_u.get(bytes, len_y, len_u);
-            buffer_v.get(bytes, len_y + len_u, len_v);
+            if(filter.ifNotReadyForVideoInput()) { return; }
 
-            filter.setDataFromYUV(bytes);
+            if(if_format_yuv) {
+                ByteBuffer buffer_y = image.getPlanes()[0].getBuffer();
+                ByteBuffer buffer_u = image.getPlanes()[1].getBuffer();
+                ByteBuffer buffer_v = image.getPlanes()[2].getBuffer();
+                int len_y = buffer_y.remaining(), len_u = buffer_u.remaining(),
+                        len_v = buffer_v.remaining();
+                byte[] bytes = new byte[len_y + len_u + len_v];
+                buffer_y.get(bytes, 0, len_y);
+                buffer_u.get(bytes, len_y, len_u);
+                buffer_v.get(bytes, len_y + len_u, len_v);
+                filter.setDataFromYUV(bytes);
+            }
+            else {
+                ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+                byte[] bytes = new byte[buffer.remaining()];
+                buffer.get(bytes);
+                filter.setDataFromBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.length));
+            }
+
             filter.doBatch();
             filter.waitTillBatchEnd();
             filter.copyCurrent(current_image);
 
             float average_time = 0.0f;
             long current_time_millisec = System.currentTimeMillis();
-            time_intervals[time_interval_count] = (float)(current_time_millisec - last_time_millisec) / 1000.0f;
+            time_intervals[time_interval_count] =
+                    (float)(current_time_millisec - last_time_millisec) / 1000.0f;
             last_time_millisec = current_time_millisec;
             time_interval_count--;
             if(time_interval_count < 0) {
@@ -391,6 +413,18 @@ public class LiveStream extends Activity implements View.OnClickListener {
                 time_interval_count = 4;
             }
             final float average_time_copy = average_time;
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    canvas.setImageBitmap(current_image);
+                    if (average_time_copy > 0.0f) {
+                        info_display.setText(String.format("%.2f", 1.0f / average_time_copy) + " FPS");
+                    }
+                }
+            });
+
+            image.close();
 
             /*int width = size_image.getWidth();
             int height = size_image.getHeight();
@@ -418,20 +452,6 @@ public class LiveStream extends Activity implements View.OnClickListener {
                     i+=width;
             }
             current_image = Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888);*/
-            ;
-
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    // real processing part
-                    canvas.setImageBitmap(current_image);
-                    if(average_time_copy > 0.0f) {
-                        info_display.setText(String.format("%.2f", 1.0f / average_time_copy) + " FPS");
-                    }
-                }
-            });
-            image.close();
-            if_camera_ready_for_next = true;
         }
     }
 
@@ -443,48 +463,72 @@ public class LiveStream extends Activity implements View.OnClickListener {
         ORIENTATIONS.append(Surface.ROTATION_270, 180);
     }
 
+    private void restartCameraSession() {
+        this.camera_capture_session.close();
+        this.image_reader.close();
+        this.filter.resetData();
+
+        this.current_image = Bitmap.createBitmap(this.size_image.getHeight(),
+                this.size_image.getWidth(), Bitmap.Config.ARGB_8888);
+
+        if(this.if_format_yuv) {
+            this.filter.prepareForYUV(this.size_image);
+            this.image_reader = ImageReader.newInstance(
+                    this.size_image.getWidth(), this.size_image.getHeight(),
+                    ImageFormat.YUV_420_888, 3);
+        }
+        else {
+            this.filter.prepareForBitmap(this.size_image);
+            this.image_reader = ImageReader.newInstance(
+                    this.size_image.getWidth(), this.size_image.getHeight(),
+                    ImageFormat.JPEG, 3);
+        }
+
+        this.image_reader.setOnImageAvailableListener(this.image_reader_listener,
+                this.background_handler);
+
+        this.createCameraPreviewSession();
+
+        this.info_display.setText("Here displays Information like framerate");
+        this.last_time_millisec = System.currentTimeMillis();
+        this.time_interval_count = 4;
+    }
+
     private void selectImageResolution() {
         AlertDialog.Builder dialog_builder = new AlertDialog.Builder(this);;
         AlertDialog dialog;
-        LinearLayout.LayoutParams layout_select_batch = new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams layout_select_resolution = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
 
+        LinearLayout content_dialog = new LinearLayout(this);
+        content_dialog.setOrientation(LinearLayout.VERTICAL);
+
+        final CheckBox checkbox_if_fuv = new CheckBox(this);
+        checkbox_if_fuv.setLayoutParams(layout_select_resolution);
+        checkbox_if_fuv.setText("Format YUV?");
+        checkbox_if_fuv.setChecked(this.if_format_yuv);
+        content_dialog.addView(checkbox_if_fuv);
+
         ArrayAdapter<String> adapter_channels = new ArrayAdapter<String>(this,
                 android.R.layout.simple_spinner_item, this.size_image_list_str);
-        final Spinner spinner_batches = new Spinner(this);
-        spinner_batches.setAdapter(adapter_channels);
-        spinner_batches.setLayoutParams(layout_select_batch);
+        final Spinner spinner_resolutions = new Spinner(this);
+        spinner_resolutions.setAdapter(adapter_channels);
+        spinner_resolutions.setLayoutParams(layout_select_resolution);
+        content_dialog.addView(spinner_resolutions);
 
         dialog_builder.setTitle("Select resolution");
-        dialog_builder.setView(spinner_batches);
+        dialog_builder.setView(content_dialog);
         dialog_builder.setPositiveButton("Try it", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
+                if_format_yuv = checkbox_if_fuv.isChecked();
                 if(size_image_list.length > 0) {
-                    int id_resolution = (int) spinner_batches.getSelectedItemId();
+                    int id_resolution = (int) spinner_resolutions.getSelectedItemId();
                     size_image = size_image_list[id_resolution];
                     button_sel_resolution.setText(size_image.getHeight()
                             + "x" + size_image.getWidth());
 
-                    filter.resetData();
-                    filter.prepareForYUV(size_image);
-                    current_image = Bitmap.createBitmap(size_image.getHeight(),
-                            size_image.getWidth(), Bitmap.Config.ARGB_8888);
-
-                    image_reader.close();
-                    image_reader = ImageReader.newInstance(
-                            size_image.getWidth(), size_image.getHeight(),
-                            ImageFormat.YUV_420_888,
-                            1);
-                    image_reader.setOnImageAvailableListener(image_reader_listener,
-                            background_handler);
-
-                    camera_capture_session.close();
-                    createCameraPreviewSession();
-
-                    info_display.setText("Here displays Information like framerate");
-                    last_time_millisec = System.currentTimeMillis();
-                    time_interval_count = 4;
+                    restartCameraSession();
                 }
 
             }
@@ -504,7 +548,6 @@ public class LiveStream extends Activity implements View.OnClickListener {
 
         this.camera_preview = (TextureView)findViewById(R.id.textureview_livestream_preview);
         this.camera_id_default = "";
-        this.if_camera_ready_for_next = true;
 
         this.button_load_batch = (Button)findViewById(R.id.button_livestream_loadbatch);
         this.button_back = (Button)findViewById(R.id.button_livestream_back);
@@ -525,6 +568,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
 
         this.size_image_list_str = new String[0];
         this.size_image_list = new Size[0];
+        this.if_format_yuv = true;
 
         this.debug = (TextView)findViewById(R.id.textView);
     }

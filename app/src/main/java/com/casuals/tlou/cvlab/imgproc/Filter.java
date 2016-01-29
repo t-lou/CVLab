@@ -96,6 +96,8 @@ public class Filter {
 
         this.height = source.getHeight();
         this.width = source.getWidth();
+
+        this.id_channel = -1;
     }
 
     public void setDataFromYUV(byte[] data) {
@@ -104,8 +106,9 @@ public class Filter {
         this.yuv_rgba_convertor.setInput(this.allocation_input_yuv);
         this.yuv_rgba_convertor.forEach(this.allocation_output_rgba);
         this.script.set_context(this.allocation_output_rgba);
-        this.script.forEach_transpose(this.allocation_in, this.allocation_out);
-        this.script.forEach_copy(this.allocation_out, this.allocation_in);
+        this.script.forEach_transpose(this.allocation_out, this.allocation_in);
+
+        this.id_channel = -1;
         this.lock.unlock();
     }
 
@@ -136,8 +139,40 @@ public class Filter {
                 type_rgba.create(), Allocation.USAGE_SCRIPT);
     }
 
-    public Surface getInputSurface() {
-        return this.allocation_input_yuv.getSurface();
+    public void setDataFromBitmap(Bitmap image) {
+        this.lock.lock();
+        this.allocation_output_rgba.copyFrom(image);
+        this.script.set_context(this.allocation_output_rgba);
+        this.script.forEach_transpose(this.allocation_in, this.allocation_out);
+        this.script.set_context(this.allocation_out);
+        this.script.set_width(this.width);
+        this.script.forEach_flip_vertical(this.allocation_out, this.allocation_in);
+
+        this.id_channel = -1;
+        this.lock.unlock();
+    }
+
+    public void prepareForBitmap(Size size) {
+        this.width = size.getHeight();
+        this.height = size.getWidth();
+
+        Type.Builder type_rgba = new Type.Builder(this.render_script,
+                Element.RGBA_8888(this.render_script)).setX(this.width).setY(this.height);
+        this.allocation_in = Allocation.createTyped(this.render_script,
+                type_rgba.create(), Allocation.USAGE_SCRIPT);
+        this.allocation_out = Allocation.createTyped(this.render_script,
+                type_rgba.create(), Allocation.USAGE_SCRIPT);
+        this.allocation_context = Allocation.createTyped(this.render_script,
+                type_rgba.create(), Allocation.USAGE_SCRIPT);
+
+        type_rgba = new Type.Builder(this.render_script,
+                Element.RGBA_8888(this.render_script)).setX(this.height).setY(this.width);
+        this.allocation_output_rgba = Allocation.createTyped(this.render_script,
+                type_rgba.create(), Allocation.USAGE_SCRIPT);
+    }
+
+    public boolean ifNotReadyForVideoInput() {
+        return allocation_output_rgba == null;
     }
 
     public void resetData() {
@@ -145,9 +180,6 @@ public class Filter {
         this.allocation_out = null;
         this.allocation_context = null;
         this.batch_items = null;
-
-        // negative: unassigned
-        this.id_channel = -1;
     }
 
     public void preprecess(int index) {
@@ -345,12 +377,11 @@ public class Filter {
             this.script.set_index_channel(this.id_channel);
             this.script.set_context(this.allocation_context);
             this.script.forEach_decode(this.allocation_in, this.allocation_out);
+            this.allocation_out.copyTo(image);
         }
-        this.allocation_out.copyTo(image);
-    }
-
-    public void copyRGBA(Bitmap image) {
-        this.allocation_output_rgba.copyTo(image);
+        else {
+            this.allocation_in.copyTo(image);
+        }
     }
 
     public String[] getFilterNames () {
