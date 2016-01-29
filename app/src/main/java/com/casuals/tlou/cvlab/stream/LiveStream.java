@@ -80,6 +80,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
     private Size size_preview;
     private Size size_image;
     private Size[] size_image_list;
+    private Size[] size_jpeg_image_list;
     private String[] size_image_list_str;
     private boolean if_format_yuv;
     private TextureView camera_preview;
@@ -249,10 +250,19 @@ public class LiveStream extends Activity implements View.OnClickListener {
                                 config.getOutputSizes(SurfaceTexture.class),
                                 this.canvas.getWidth(), this.canvas.getHeight());
                         this.size_image_list = config.getOutputSizes(SurfaceTexture.class);
+                        this.size_jpeg_image_list = config.getOutputSizes(ImageFormat.JPEG);
                         this.size_image_list_str = new String[this.size_image_list.length];
                         for(int i = 0; i < this.size_image_list.length; i++) {
+                            String suffix = "";
+                            for(Size size : this.size_jpeg_image_list) {
+                                if((this.size_image_list[i].getHeight() + this.size_image_list[i].getWidth()
+                                        == (size.getWidth() + size.getHeight()))) {
+                                    suffix = "*";
+                                    break;
+                                }
+                            }
                             this.size_image_list_str[i] = this.size_image_list[i].getHeight()
-                                    + "x" + this.size_image_list[i].getWidth();
+                                    + "x" + this.size_image_list[i].getWidth() + suffix;
                         }
                         this.button_sel_resolution.setText(this.size_image.getHeight()
                                 + "x" + this.size_image.getWidth());
@@ -516,6 +526,11 @@ public class LiveStream extends Activity implements View.OnClickListener {
         spinner_resolutions.setAdapter(adapter_channels);
         spinner_resolutions.setLayoutParams(layout_select_resolution);
         content_dialog.addView(spinner_resolutions);
+
+        TextView text_explanation = new TextView(this);
+        text_explanation.setLayoutParams(layout_select_resolution);
+        text_explanation.setText("The resolutions with * should be available in non-YUV mode");
+        content_dialog.addView(text_explanation);
 
         dialog_builder.setTitle("Select resolution");
         dialog_builder.setView(content_dialog);
