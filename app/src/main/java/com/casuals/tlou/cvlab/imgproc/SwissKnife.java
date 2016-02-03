@@ -158,7 +158,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         LinearLayout content_dialog;
         final EditText[] edit_items;
 
-        String[] item_channels = {"Gray scale", "Red", "Green", "Blue"};
+        String[] item_channels = {"Gray scale", "Red", "Green", "Blue", "Hue", "Saturation", "Value"};
         ArrayAdapter<String> adapter_channels = new ArrayAdapter<String>(this,
                 android.R.layout.simple_spinner_item, item_channels);
         final Spinner spinner_channels = new Spinner(this);

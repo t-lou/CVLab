@@ -183,17 +183,18 @@ public class Filter {
     }
 
     public void preprecess(int index) {
+        if(index < 0 || index > 6) index = 0;
         // init
         if(this.id_channel < 0) {
             this.script.set_index_channel(index);
             this.allocation_context.copyFrom(this.allocation_in);
             this.script.forEach_encode(this.allocation_context, this.allocation_in);
         }
-        // switch channel
+        // switch channel, this.allocation_context should be the original image
         else if(this.id_channel != index) {
             this.script.set_context(this.allocation_context);
             this.script.set_index_channel(this.id_channel);
-            this.script.forEach_decode(this.allocation_in, this.allocation_out);
+            this.script.forEach_decode_with_context(this.allocation_in, this.allocation_out);
             this.script.set_index_channel(index);
             this.script.forEach_encode(this.allocation_out, this.allocation_in);
         }
@@ -371,11 +372,22 @@ public class Filter {
         this.lock.unlock();
     }
 
-    public void copyCurrent(Bitmap image) {
+    public void copyCurrentWithContext(Bitmap image) {
         if(this.id_channel >= 0) {
             this.allocation_context = Allocation.createFromBitmap(this.render_script, image);
             this.script.set_index_channel(this.id_channel);
             this.script.set_context(this.allocation_context);
+            this.script.forEach_decode_with_context(this.allocation_in, this.allocation_out);
+            this.allocation_out.copyTo(image);
+        }
+        else {
+            this.allocation_in.copyTo(image);
+        }
+    }
+
+    public void copyCurrent(Bitmap image) {
+        if(this.id_channel >= 0) {
+            this.script.set_index_channel(this.id_channel);
             this.script.forEach_decode(this.allocation_in, this.allocation_out);
             this.allocation_out.copyTo(image);
         }

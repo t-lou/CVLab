@@ -92,7 +92,31 @@ uchar4 __attribute__((kernel)) encode(uchar4 in) {
 }
 
 // float -> uchar4
-uchar4 __attribute__((kernel)) decode(uchar4 in, uint32_t x, uint32_t y) {
+uchar4 __attribute__((kernel)) decode(uchar4 in) {
+    union CONVERTOR convertor;
+    float4 pixel;
+
+    convertor._uchar4 = in;
+
+    // H in HSV
+    if(index_channel == 4) {
+        convertor._float /= 360.0f;
+    }
+
+    if(convertor._float < 0.0f) {
+        convertor._float = 0.0f;
+    }
+    else if(convertor._float > 1.0f) {
+        convertor._float = 1.0f;
+    }
+    pixel = convertor._float;
+    pixel.w = 1.0f;
+
+    return rsPackColorTo8888(pixel);
+}
+
+// float -> uchar4
+uchar4 __attribute__((kernel)) decode_with_context(uchar4 in, uint32_t x, uint32_t y) {
     union CONVERTOR convertor;
     float4 pixel;
 
@@ -107,7 +131,7 @@ uchar4 __attribute__((kernel)) decode(uchar4 in, uint32_t x, uint32_t y) {
         }
 
         pixel = convertor._float;
-        //pixel.w = 1.0f;
+        pixel.w = 1.0f;
     }
     // value to R, G or B
     else if (index_channel < 4) {
