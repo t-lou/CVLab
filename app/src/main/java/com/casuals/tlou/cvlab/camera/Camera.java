@@ -1,7 +1,9 @@
 package com.casuals.tlou.cvlab.camera;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
@@ -27,7 +29,12 @@ import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.LinearLayout;
+import android.widget.Spinner;
+import android.widget.TextView;
 
 import com.casuals.tlou.cvlab.R;
 import com.casuals.tlou.cvlab.main;
@@ -66,6 +73,7 @@ public class Camera extends Activity implements View.OnClickListener {
 
     private Button button_camera_capture;
     private Button button_camera_back;
+    private Button button_camera_resolution;
     //private CheckBox check_camera_noflash;
 
     // TextureView for preview
@@ -297,10 +305,19 @@ public class Camera extends Activity implements View.OnClickListener {
                                     }
                                 }
                         );
-                        this.image_reader = ImageReader.newInstance(largestImageSize.getWidth(),
-                                largestImageSize.getHeight(),
-                                ImageFormat.JPEG,
-                                3);
+                        this.size_image_reader = config.getOutputSizes(ImageFormat.JPEG);
+                        this.size_image_reader_str = new String[this.size_image_reader.length];
+                        for(int i = 0; i < this.size_image_reader.length; i++) {
+                            this.size_image_reader_str[i] = this.size_image_reader[i].getHeight()
+                                    + "x" + this.size_image_reader[i].getWidth();
+                        }
+
+                        this.button_camera_resolution.setText(largestImageSize.getHeight()
+                                + "x" + largestImageSize.getWidth());
+
+                        this.image_reader = ImageReader.newInstance(
+                                largestImageSize.getWidth(), largestImageSize.getHeight(),
+                                ImageFormat.JPEG, 1);
                         this.image_reader.setOnImageAvailableListener(this.image_reader_listener,
                                 background_handler);
 
@@ -435,6 +452,8 @@ public class Camera extends Activity implements View.OnClickListener {
         }
     }
 
+    private Size[] size_image_reader;
+    private String[] size_image_reader_str;
     private ImageReader image_reader;
     private File image_file;
     private final ImageReader.OnImageAvailableListener image_reader_listener =
@@ -531,6 +550,53 @@ public class Camera extends Activity implements View.OnClickListener {
         }
     }
 
+    private void selectImageResolution() {
+        AlertDialog.Builder dialog_builder = new AlertDialog.Builder(this);;
+        AlertDialog dialog;
+        LinearLayout.LayoutParams layout_select_resolution = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+
+        LinearLayout content_dialog = new LinearLayout(this);
+        content_dialog.setOrientation(LinearLayout.VERTICAL);
+
+        ArrayAdapter<String> adapter_channels = new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_item, this.size_image_reader_str);
+        final Spinner spinner_resolutions = new Spinner(this);
+        spinner_resolutions.setAdapter(adapter_channels);
+        spinner_resolutions.setLayoutParams(layout_select_resolution);
+        content_dialog.addView(spinner_resolutions);
+
+        dialog_builder.setTitle("Select resolution");
+        dialog_builder.setView(content_dialog);
+        dialog_builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                if(size_image_reader.length > 0) {
+                    int id_resolution = (int) spinner_resolutions.getSelectedItemId();
+                    button_camera_resolution.setText(size_image_reader[id_resolution].getHeight()
+                            + "x" + size_image_reader[id_resolution].getWidth());
+
+                    camera_capture_session.close();
+                    image_reader.close();
+                    image_reader = ImageReader.newInstance(
+                            size_image_reader[id_resolution].getWidth(),
+                            size_image_reader[id_resolution].getHeight(),
+                            ImageFormat.JPEG, 1);
+                    image_reader.setOnImageAvailableListener(image_reader_listener,
+                            background_handler);
+                    createCameraPreviewSession();
+                }
+
+            }
+        });
+        dialog_builder.setNegativeButton("No", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {}
+        });
+
+        dialog = dialog_builder.create();
+        dialog.show();
+    }
+
     // system calls of the class
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -539,10 +605,12 @@ public class Camera extends Activity implements View.OnClickListener {
 
         this.button_camera_capture = (Button)findViewById(R.id.button_camera_capture);
         this.button_camera_back = (Button)findViewById(R.id.button_camera_back);
+        this.button_camera_resolution = (Button)findViewById(R.id.button_livestream_selresolution);
         //this.check_camera_noflash = (CheckBox)findViewById(R.id.checkBox_camera_noflash);
 
         this.button_camera_capture.setOnClickListener(this);
         this.button_camera_back.setOnClickListener(this);
+        this.button_camera_resolution.setOnClickListener(this);
 
         this.camera_preview = (TextureView)findViewById(R.id.camera_preview);
         this.camera_id_default = "";
@@ -579,6 +647,9 @@ public class Camera extends Activity implements View.OnClickListener {
             case R.id.button_camera_back:
                 in = new Intent(this, main.class);
                 startActivity(in);
+                break;
+            case R.id.button_livestream_selresolution:
+                this.selectImageResolution();
                 break;
         }
     }
