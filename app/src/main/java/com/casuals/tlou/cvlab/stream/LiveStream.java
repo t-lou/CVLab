@@ -76,7 +76,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
     private long last_time_millisec;
     private float[] time_intervals;
     private int time_interval_count;
-
+    private File batch_file;
     private Size size_preview;
     private Size size_image;
     private Size[] size_image_list;
@@ -633,9 +633,9 @@ public class LiveStream extends Activity implements View.OnClickListener {
                     public void onClick(DialogInterface dialog, int id) {
                         int id_file = (int) spinner_batches.getSelectedItemId();
                         String str = entries[id_file];
-                        File script_file = new File(Environment.getExternalStorageDirectory()
+                        batch_file = new File(Environment.getExternalStorageDirectory()
                                 + getString(R.string.script_dir) + "/" + str);
-                        filter.loadBatch(script_file);
+                        filter.loadBatch(batch_file);
                     }
                 });
                 dialog_builder.setNegativeButton("Do Nothing", new DialogInterface.OnClickListener() {

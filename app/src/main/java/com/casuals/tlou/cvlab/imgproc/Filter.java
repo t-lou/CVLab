@@ -3,6 +3,7 @@ package com.casuals.tlou.cvlab.imgproc;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
+import android.media.ThumbnailUtils;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
@@ -50,15 +51,16 @@ public class Filter {
         }
     }
 
-    private String[] available_filters = {"rgb_to_bw", "rescale", "up_pyramid",
-            "gaussian", "laplacian", "gaussian_laplacian", "mean", "bilateral",
-            "threshold"};
+    private String[] available_filters = {"rgb_to_bw", "rescale", "gaussian",
+            "laplacian", "gaussian_laplacian", "mean", "bilateral", "threshold"};
+    //TODO UpPyramid may be useless, consider deleting the icon later
 
     private RenderScript render_script;
     private ScriptC_imgproc script;
 
-    private Allocation allocation_in;
-    private Allocation allocation_out;
+    private int index_allocation;
+    private int num_allocation;
+    private Allocation[] allocations;
     private Allocation allocation_context;
     private Allocation allocation_input_yuv;
     private Allocation allocation_output_rgba;
@@ -74,25 +76,40 @@ public class Filter {
     private FilterItem[] batch_items;
 
     public Filter(Context context) {
+        this(context, 2);
+    }
+
+    public Filter(Context context, int numAllocation) {
         this.render_script = RenderScript.create(context);
         this.script = new ScriptC_imgproc(render_script);
+
+        this.init(numAllocation);
+    }
+
+    public void init(int numAllocation) {
         this.batch_items = null;
 
         this.allocation_output_rgba = null;
         this.allocation_input_yuv = null;
-        this.allocation_out = null;
-        this.allocation_in = null;
+        this.allocations = new Allocation[numAllocation];
+        for(int i = 0; i < numAllocation; i++) {
+            this.allocations[i] = null;
+        }
+        this.num_allocation = numAllocation;
+        this.index_allocation = -1;
         this.allocation_context = null;
     }
 
     public void setData(Bitmap source) {
         Bitmap image0 = source.copy(source.getConfig(), true);
-        Bitmap image1 = source.copy(source.getConfig(), true);
-        Bitmap image2 = source.copy(source.getConfig(), true);
+        this.allocation_context = Allocation.createFromBitmap(this.render_script, image0);
 
-        this.allocation_in = Allocation.createFromBitmap(this.render_script, image0);
-        this.allocation_out = Allocation.createFromBitmap(this.render_script, image1);
-        this.allocation_context = Allocation.createFromBitmap(this.render_script, image2);
+        Bitmap images[] = new Bitmap[this.num_allocation];
+        for(int i = 0; i < this.num_allocation; i++) {
+            images[i] = source.copy(source.getConfig(), true);
+            this.allocations[i] = Allocation.createFromBitmap(this.render_script, images[i]);
+        }
+        this.index_allocation = 0;
 
         this.height = source.getHeight();
         this.width = source.getWidth();
@@ -106,7 +123,8 @@ public class Filter {
         this.yuv_rgba_convertor.setInput(this.allocation_input_yuv);
         this.yuv_rgba_convertor.forEach(this.allocation_output_rgba);
         this.script.set_context(this.allocation_output_rgba);
-        this.script.forEach_transpose(this.allocation_out, this.allocation_in);
+        this.script.forEach_transpose(
+                this.allocations[this.index_allocation], this.allocations[this.index_allocation]);
 
         this.id_channel = -1;
         this.lock.unlock();
@@ -131,22 +149,27 @@ public class Filter {
 
         type_rgba = new Type.Builder(this.render_script,
                 Element.RGBA_8888(this.render_script)).setX(this.width).setY(this.height);
-        this.allocation_in = Allocation.createTyped(this.render_script,
-                type_rgba.create(), Allocation.USAGE_SCRIPT);
-        this.allocation_out = Allocation.createTyped(this.render_script,
-                type_rgba.create(), Allocation.USAGE_SCRIPT);
         this.allocation_context = Allocation.createTyped(this.render_script,
                 type_rgba.create(), Allocation.USAGE_SCRIPT);
+        for(int i = 0; i < this.num_allocation; i++) {
+            this.allocations[i] = Allocation.createTyped(this.render_script,
+                    type_rgba.create(), Allocation.USAGE_SCRIPT);
+        }
+        this.index_allocation = 0;
     }
 
     public void setDataFromBitmap(Bitmap image) {
+        int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
+
         this.allocation_output_rgba.copyFrom(image);
         this.script.set_context(this.allocation_output_rgba);
-        this.script.forEach_transpose(this.allocation_in, this.allocation_out);
-        this.script.set_context(this.allocation_out);
+        this.script.forEach_transpose(
+                this.allocations[this.index_allocation], this.allocations[next_index]);
+        this.script.set_context(this.allocations[next_index]);
         this.script.set_width(this.width);
-        this.script.forEach_flip_vertical(this.allocation_out, this.allocation_in);
+        this.script.forEach_flip_vertical(
+                this.allocations[next_index], this.allocations[this.index_allocation]);
 
         this.id_channel = -1;
         this.lock.unlock();
@@ -158,12 +181,13 @@ public class Filter {
 
         Type.Builder type_rgba = new Type.Builder(this.render_script,
                 Element.RGBA_8888(this.render_script)).setX(this.width).setY(this.height);
-        this.allocation_in = Allocation.createTyped(this.render_script,
-                type_rgba.create(), Allocation.USAGE_SCRIPT);
-        this.allocation_out = Allocation.createTyped(this.render_script,
-                type_rgba.create(), Allocation.USAGE_SCRIPT);
         this.allocation_context = Allocation.createTyped(this.render_script,
                 type_rgba.create(), Allocation.USAGE_SCRIPT);
+        for(int i = 0; i < this.num_allocation; i++) {
+            this.allocations[i] = Allocation.createTyped(this.render_script,
+                    type_rgba.create(), Allocation.USAGE_SCRIPT);
+        }
+        this.index_allocation = 0;
 
         type_rgba = new Type.Builder(this.render_script,
                 Element.RGBA_8888(this.render_script)).setX(this.height).setY(this.width);
@@ -176,10 +200,20 @@ public class Filter {
     }
 
     public void resetData() {
-        this.allocation_in = null;
-        this.allocation_out = null;
+        for(int i = 0; i < this.num_allocation; i++) {
+            this.allocations[i] = null;
+        }
+        this.index_allocation = -1;
         this.allocation_context = null;
-        this.batch_items = null;
+    }
+
+    // this function is for changing channel or decode single channel
+    public void setContext(Bitmap context) {
+        if(context.getHeight() != this.height || context.getWidth() != this.width) {
+            context = ThumbnailUtils.extractThumbnail(context, this.width, this.height);
+        }
+
+        this.allocation_context.copyFrom(context);
     }
 
     public void preprecess(int index) {
@@ -187,44 +221,52 @@ public class Filter {
         // init
         if(this.id_channel < 0) {
             this.script.set_index_channel(index);
-            this.allocation_context.copyFrom(this.allocation_in);
-            this.script.forEach_encode(this.allocation_context, this.allocation_in);
+            this.allocation_context.copyFrom(this.allocations[this.index_allocation]);
+            this.script.forEach_encode(
+                    this.allocation_context, this.allocations[this.index_allocation]);
         }
         // switch channel, this.allocation_context should be the original image
         else if(this.id_channel != index) {
+            int next_index = (this.index_allocation + 1) % this.num_allocation;
             this.script.set_context(this.allocation_context);
             this.script.set_index_channel(this.id_channel);
-            this.script.forEach_decode_with_context(this.allocation_in, this.allocation_out);
+            this.script.forEach_decode_with_context(
+                    this.allocations[this.index_allocation], this.allocations[next_index]);
             this.script.set_index_channel(index);
-            this.script.forEach_encode(this.allocation_out, this.allocation_in);
+            this.script.forEach_encode(
+                    this.allocations[next_index], this.allocations[this.index_allocation]);
         }
 
         this.id_channel = index;
     }
 
     public void doRGB2BW() {
+        int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
 
-        this.script.forEach_rgb_to_bw(this.allocation_in, this.allocation_out);
-        this.script.forEach_copy(this.allocation_out, this.allocation_in);
-        this.script.forEach_copy(this.allocation_out, this.allocation_context);
+        this.script.forEach_rgb_to_bw(
+                this.allocations[this.index_allocation], this.allocations[next_index]);
+        this.script.forEach_copy(this.allocations[next_index], this.allocation_context);
+        this.index_allocation = next_index;
 
         this.lock.unlock();
     }
 
     public void doRescale(float scale, int idChannel) {
+        int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
 
         this.preprecess(idChannel);
 
         this.script.set_scale(scale);
-        this.script.forEach_rescale(this.allocation_in, this.allocation_out);
-        this.script.forEach_copy(this.allocation_out, this.allocation_in);
+        this.script.forEach_rescale(
+                this.allocations[this.index_allocation], this.allocations[next_index]);
+        this.index_allocation = next_index;
 
         this.lock.unlock();
     }
 
-    public void doUpPyramid() {
+    /*public void doUpPyramid() {
         this.lock.lock();
 
         Bitmap.Config conf = Bitmap.Config.ARGB_8888;
@@ -245,9 +287,10 @@ public class Filter {
         this.allocation_context = Allocation.createFromBitmap(this.render_script, image2);
 
         this.lock.unlock();
-    }
+    }*/
 
     public void doGaussian(int radius, int idChannel, float sigma) {
+        int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
 
         float[] mask = this.createGaussianMask(radius, sigma);
@@ -259,17 +302,19 @@ public class Filter {
 
         this.script.set_scale(1.0f);
         this.script.set_mask(allocation_mask);
-        this.script.set_context(this.allocation_in);
+        this.script.set_context(this.allocations[this.index_allocation]);
         this.script.set_height(this.height);
         this.script.set_width(this.width);
         this.script.set_radius(radius);
-        this.script.forEach_gaussian(this.allocation_in, this.allocation_out);
-        this.script.forEach_copy(this.allocation_out, this.allocation_in);
+        this.script.forEach_gaussian(
+                this.allocations[this.index_allocation], this.allocations[next_index]);
+        this.index_allocation = next_index;
 
         this.lock.unlock();
     }
 
     public void doLaplacian(int idChannel, float scale) {
+        int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
 
         float[] mask = this.createLaplacianMask();
@@ -281,18 +326,20 @@ public class Filter {
 
         this.script.set_scale(scale);
         this.script.set_mask(allocation_mask);
-        this.script.set_context(this.allocation_in);
+        this.script.set_context(this.allocations[this.index_allocation]);
         this.script.set_height(this.height);
         this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(1);
-        this.script.forEach_gaussian(this.allocation_in, this.allocation_out);
-        this.script.forEach_copy(this.allocation_out, this.allocation_in);
+        this.script.forEach_gaussian(
+                this.allocations[this.index_allocation], this.allocations[next_index]);
+        this.index_allocation = next_index;
 
         this.lock.unlock();
     }
 
     public void doGaussianLaplacian(int radius, int idChannel, float sigma, float scale) {
+        int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
 
         float[] mask = this.createGaussianLaplacianMask(radius, sigma);
@@ -307,33 +354,37 @@ public class Filter {
 
         this.script.set_scale(1.0f);
         this.script.set_mask(allocation_mask);
-        this.script.set_context(this.allocation_in);
+        this.script.set_context(this.allocations[this.index_allocation]);
         this.script.set_height(this.height);
         this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
-        this.script.forEach_gaussian(this.allocation_in, this.allocation_out);
-        this.script.forEach_copy(this.allocation_out, this.allocation_in);
+        this.script.forEach_gaussian(
+                this.allocations[this.index_allocation], this.allocations[next_index]);
+        this.index_allocation = next_index;
 
         this.lock.unlock();
     }
 
     public void doMean(int radius, int idChannel) {
+        int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
 
         this.preprecess(idChannel);
 
-        this.script.set_context(this.allocation_in);
+        this.script.set_context(this.allocations[this.index_allocation]);
         this.script.set_height(this.height);
         this.script.set_width(this.width);
         this.script.set_radius(radius);
-        this.script.forEach_mean(this.allocation_in, this.allocation_out);
-        this.script.forEach_copy(this.allocation_out, this.allocation_in);
+        this.script.forEach_mean(
+                this.allocations[this.index_allocation], this.allocations[next_index]);
+        this.index_allocation = next_index;
 
         this.lock.unlock();
     }
 
     public void doBilateral(int radius, int idChannel, float sigma_spatial, float sigma_range) {
+        int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
 
         float[] mask = this.createGaussianMask(radius, sigma_spatial);
@@ -346,26 +397,29 @@ public class Filter {
         this.script.set_scale(1.0f);
         this.script.set_threshold_value(2.0f * sigma_range * sigma_range);
         this.script.set_mask(allocation_mask);
-        this.script.set_context(this.allocation_in);
+        this.script.set_context(this.allocations[this.index_allocation]);
         this.script.set_height(this.height);
         this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
-        this.script.forEach_bilateral(this.allocation_in, this.allocation_out);
-        this.script.forEach_copy(this.allocation_out, this.allocation_in);
+        this.script.forEach_bilateral(
+                this.allocations[this.index_allocation], this.allocations[next_index]);
+        this.index_allocation = next_index;
 
         this.lock.unlock();
     }
 
     public void doThreshold(int idChannel, float thresholdValue) {
+        int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
 
         this.preprecess(idChannel);
 
         this.script.set_threshold_value(thresholdValue);
         this.script.set_index_channel(idChannel);
-        this.script.forEach_threshold(this.allocation_in, this.allocation_out);
-        this.script.forEach_copy(this.allocation_out, this.allocation_in);
+        this.script.forEach_threshold(
+                this.allocations[this.index_allocation], this.allocations[next_index]);
+        this.index_allocation = next_index;
 
         this.id_channel = 0;
 
@@ -374,25 +428,28 @@ public class Filter {
 
     public void copyCurrentWithContext(Bitmap image) {
         if(this.id_channel >= 0) {
-            this.allocation_context = Allocation.createFromBitmap(this.render_script, image);
+            int next_index = (this.index_allocation + 1) % this.num_allocation;
             this.script.set_index_channel(this.id_channel);
             this.script.set_context(this.allocation_context);
-            this.script.forEach_decode_with_context(this.allocation_in, this.allocation_out);
-            this.allocation_out.copyTo(image);
+            this.script.forEach_decode_with_context(
+                    this.allocations[this.index_allocation], this.allocations[next_index]);
+            this.allocations[next_index].copyTo(image);
         }
         else {
-            this.allocation_in.copyTo(image);
+            this.allocations[this.index_allocation].copyTo(image);
         }
     }
 
     public void copyCurrent(Bitmap image) {
         if(this.id_channel >= 0) {
+            int next_index = (this.index_allocation + 1) % this.num_allocation;
             this.script.set_index_channel(this.id_channel);
-            this.script.forEach_decode(this.allocation_in, this.allocation_out);
-            this.allocation_out.copyTo(image);
+            this.script.forEach_decode(
+                    this.allocations[this.index_allocation], this.allocations[next_index]);
+            this.allocations[next_index].copyTo(image);
         }
         else {
-            this.allocation_in.copyTo(image);
+            this.allocations[this.index_allocation].copyTo(image);
         }
     }
 
@@ -541,7 +598,7 @@ public class Filter {
             for(FilterItem item : this.batch_items) {
                 switch (item.filter_name) {
                     case "rgb_to_bw":
-                    case "up_pyramid":
+                    // case "up_pyramid":
                         this.doRGB2BW();
                         break;
                     case "rescale":

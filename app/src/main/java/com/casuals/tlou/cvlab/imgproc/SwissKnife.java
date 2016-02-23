@@ -232,7 +232,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 dialog = dialog_builder.create();
                 dialog.show();
                 break;
-            case "up_pyramid":
+            /*case "up_pyramid":
                 this.filter.doUpPyramid();
                 this.filter.waitTillEnd();
                 this.image = ThumbnailUtils.extractThumbnail(this.image,
@@ -246,7 +246,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 finally {
                     this.script_obj.put(script_item);
                 }
-                break;
+                break;*/
             case "gaussian":
                 content_dialog = new LinearLayout(this);
                 content_dialog.setOrientation(LinearLayout.VERTICAL);
