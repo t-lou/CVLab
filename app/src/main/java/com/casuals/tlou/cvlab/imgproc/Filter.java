@@ -10,7 +10,6 @@ import android.renderscript.RenderScript;
 import android.renderscript.ScriptIntrinsicYuvToRGB;
 import android.renderscript.Type;
 import android.util.Size;
-import android.view.Surface;
 
 import org.json.JSONArray;
 import org.json.JSONException;

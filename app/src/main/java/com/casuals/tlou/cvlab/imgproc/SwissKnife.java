@@ -21,7 +21,6 @@ import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
-import android.widget.TextView;
 
 import com.casuals.tlou.cvlab.R;
 
@@ -35,7 +34,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
-import java.util.Scanner;
 
 /*
  *
@@ -72,7 +70,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             View row = convertView;
-            ImageView holder = null;
+            ImageView holder;
 
             if (row == null) {
                 LayoutInflater inflater = ((Activity) context).getLayoutInflater();
@@ -91,14 +89,11 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
     private ImageView imageview_canvas;
     private GridView gridview_tools;
-    private GridViewAdapter gridview_tools_adapter;
-    private Button button_back;
-    private Button button_undo;
-    private Button button_save;
+    // private GridViewAdapter gridview_tools_adapter;
 
     private Bitmap image;
-    private Bitmap image_rendered;
-    private String name;
+    // private Bitmap image_rendered;
+    // private String name;
     private File file_origin;
     private File file_last_image;
     private boolean if_saved;
@@ -159,7 +154,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         final EditText[] edit_items;
 
         String[] item_channels = {"Gray scale", "Red", "Green", "Blue", "Hue", "Saturation", "Value"};
-        ArrayAdapter<String> adapter_channels = new ArrayAdapter<String>(this,
+        ArrayAdapter<String> adapter_channels = new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item, item_channels);
         final Spinner spinner_channels = new Spinner(this);
         spinner_channels.setAdapter(adapter_channels);
@@ -176,7 +171,9 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 script_item = new JSONObject();
                 try {
                     script_item.put("name", name);
-                } catch(JSONException e) { }
+                } catch(JSONException e) {
+                    this.alert("Recording error");
+                }
                 finally {
                     this.script_obj.put(script_item);
                 }
@@ -222,7 +219,9 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                                 script_item_inner.put("name", name);
                                 script_item_inner.put("channel", id_channel);
                                 script_item_inner.put("scaling_factor", scaling_factor);
-                            } catch(JSONException e) { }
+                            } catch(JSONException e) {
+                                alert("Recording error");
+                            }
                             finally {
                                 script_obj.put(script_item_inner);
                             }
@@ -300,7 +299,9 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                                 script_item_inner.put("channel", id_channel);
                                 script_item_inner.put("radius", radius);
                                 script_item_inner.put("sigma", sigma);
-                            } catch(JSONException e) { }
+                            } catch(JSONException e) {
+                                alert("Recording error");
+                            }
                             finally {
                                 script_obj.put(script_item_inner);
                             }
@@ -351,7 +352,9 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                                 script_item_inner.put("name", name);
                                 script_item_inner.put("channel", id_channel);
                                 script_item_inner.put("scaling_factor", scaling_factor);
-                            } catch(JSONException e) { }
+                            } catch(JSONException e) {
+                                alert("Recording error");
+                            }
                             finally {
                                 script_obj.put(script_item_inner);
                             }
@@ -428,7 +431,9 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                                 script_item_inner.put("radius", radius);
                                 script_item_inner.put("sigma", sigma_gaussian);
                                 script_item_inner.put("scaling_factor", scaling_factor);
-                            } catch(JSONException e) { }
+                            } catch(JSONException e) {
+                                alert("Recording error");
+                            }
                             finally {
                                 script_obj.put(script_item_inner);
                             }
@@ -505,7 +510,9 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                                 script_item_inner.put("radius", radius);
                                 script_item_inner.put("sigma_range", sigma_range);
                                 script_item_inner.put("sigma_spatial", sigma_spatial);
-                            } catch(JSONException e) { }
+                            } catch(JSONException e) {
+                                alert("Recording error");
+                            }
                             finally {
                                 script_obj.put(script_item_inner);
                             }
@@ -555,7 +562,9 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                                 script_item_inner.put("name", name);
                                 script_item_inner.put("channel", id_channel);
                                 script_item_inner.put("radius", radius);
-                            } catch(JSONException e) { }
+                            } catch(JSONException e) {
+                                alert("Recording error");
+                            }
                             finally {
                                 script_obj.put(script_item_inner);
                             }
@@ -606,7 +615,9 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                                 script_item_inner.put("name", name);
                                 script_item_inner.put("channel", id_channel);
                                 script_item_inner.put("threshold", threshold);
-                            } catch(JSONException e) { }
+                            } catch(JSONException e) {
+                                alert("Recording error");
+                            }
                             finally {
                                 script_obj.put(script_item_inner);
                             }
@@ -633,7 +644,11 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             writer.write(this.script_obj.toString());
             writer.close();
             output_stream.close();
-        } catch(FileNotFoundException e) {} catch (IOException e) {}
+        } catch(FileNotFoundException e) {
+            this.alert("File cannot write");
+        } catch (IOException e) {
+            this.alert("Writing error");
+        }
     }
 
     private void saveImage(Bitmap image, File file) {
@@ -645,12 +660,14 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             output = new FileOutputStream(file);
             image.compress(Bitmap.CompressFormat.PNG, 100, output);
         } catch (Exception e) {
-            e.printStackTrace();
+            this.alert("Image file not created");
         } finally {
             try {
                 output.close();
             } catch (IOException e) {
-                e.printStackTrace();
+                this.alert("Saving image failed(IOException)");
+            } catch(NullPointerException e) {
+                this.alert("Saving image failed(NullPointerException)");
             }
         }
     }
@@ -716,13 +733,13 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
         this.imageview_canvas = (ImageView)findViewById(R.id.swissknife_imageview_canvas);
 
-        this.button_back = (Button)findViewById(R.id.button_swissknife_back);
-        this.button_save = (Button)findViewById(R.id.button_swissknife_save);
-        this.button_undo = (Button)findViewById(R.id.button_swissknife_undo);
+        Button button_back = (Button)findViewById(R.id.button_swissknife_back);
+        Button button_save = (Button)findViewById(R.id.button_swissknife_save);
+        Button button_undo = (Button)findViewById(R.id.button_swissknife_undo);
 
-        this.button_back.setOnClickListener(this);
-        this.button_save.setOnClickListener(this);
-        this.button_undo.setOnClickListener(this);
+        button_back.setOnClickListener(this);
+        button_save.setOnClickListener(this);
+        button_undo.setOnClickListener(this);
 
         this.filter = new Filter(this);
         this.filter.resetData();
@@ -732,9 +749,9 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 + getString(R.string.script_dir) + "/unnamed.func");
 
         this.gridview_tools = (GridView)findViewById(R.id.gridview_swissknife_tools);
-        this.gridview_tools_adapter = new GridViewAdapter(this, R.layout.swissknife_tool_item,
+        GridViewAdapter gridview_tools_adapter = new GridViewAdapter(this, R.layout.swissknife_tool_item,
                 this.getToolItems());
-        this.gridview_tools.setAdapter(this.gridview_tools_adapter);
+        this.gridview_tools.setAdapter(gridview_tools_adapter);
 
         this.gridview_tools.setOnItemClickListener(
                 new AdapterView.OnItemClickListener() {
@@ -745,11 +762,17 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 }
         );
 
-        this.name = getIntent().getExtras().getString("path");
-        this.file_origin = new File(this.name);
+        String name = getIntent().getExtras().getString("path");
+        if(name != null) {
+            this.file_origin = new File(name);
+        }
+        else {
+            this.file_origin = null;
+            this.alert("No file passed");
+        }
         // open scaled image
         this.openImage(this.file_origin);
-        this.image_rendered = null;
+        // this.image_rendered = null;
 
         this.filter.setData(this.image);
 
@@ -773,7 +796,6 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
     @Override
     public void onClick(View v) {
-        Intent in;
         switch(v.getId()) {
             case R.id.button_swissknife_undo:
                 this.filter.resetData();
@@ -835,21 +857,27 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 break;
 
             case R.id.button_swissknife_back:
-                AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                builder.setTitle("Image is large");
-                builder.setMessage("Image not save, are you sure?");
-                builder.setNegativeButton("No wait", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                    }
-                });
-                builder.setPositiveButton("Absolutely", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        Intent intent = new Intent(SwissKnife.this, Gallerie.class);
-                        startActivity(intent);
-                    }
-                });
-                AlertDialog dialog = builder.create();
-                dialog.show();
+                if(this.if_saved) {
+                    Intent intent = new Intent(SwissKnife.this, Gallerie.class);
+                    startActivity(intent);
+                }
+                else {
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setTitle("Return to gallery");
+                    builder.setMessage("Image not save, are you sure?");
+                    builder.setNegativeButton("No wait", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                        }
+                    });
+                    builder.setPositiveButton("Absolutely", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            Intent intent = new Intent(SwissKnife.this, Gallerie.class);
+                            startActivity(intent);
+                        }
+                    });
+                    AlertDialog dialog = builder.create();
+                    dialog.show();
+                }
                 break;
         }
     }

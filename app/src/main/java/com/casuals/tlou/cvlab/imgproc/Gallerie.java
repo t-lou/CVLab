@@ -74,7 +74,7 @@ public class Gallerie extends Activity implements View.OnClickListener {
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             View row = convertView;
-            ViewHolder holder = null;
+            ViewHolder holder;
 
             if (row == null) {
                 LayoutInflater inflater = ((Activity) context).getLayoutInflater();
@@ -95,7 +95,7 @@ public class Gallerie extends Activity implements View.OnClickListener {
     }
 
     private GridView gridview_items;
-    private GridViewAdapter gridview_items_adapter;
+    //private GridViewAdapter gridview_items_adapter;
 
     private Button button_set_dir_home;
     private Button button_set_dir_sdcard;
@@ -122,14 +122,13 @@ public class Gallerie extends Activity implements View.OnClickListener {
     }
 
     private String getFilePath(File file) {
-        String path = "";
+        String path;
         try {
             path = file.getCanonicalPath();
         } catch (IOException e) {
             path = file.getAbsolutePath();
-        } finally {
-            return path;
         }
+        return path;
     }
 
     private Bitmap markAsSelected(Bitmap target) {
@@ -159,6 +158,9 @@ public class Gallerie extends Activity implements View.OnClickListener {
 
                 if(file.isDirectory()) {
                     bitmap = this.icon_dir.copy(conf, true);
+                    if(this.list_selected_items.contains(this.getFilePath(file))) {
+                        bitmap = this.markAsSelected(bitmap);
+                    }
                 }
                 else if(str.indexOf('.') < 0) {
                     bitmap = this.icon_file.copy(conf, true);
@@ -199,18 +201,8 @@ public class Gallerie extends Activity implements View.OnClickListener {
 
     private boolean openDir(String name) {
         File file = new File(name);
-        boolean result = false;
-        if(file.exists()) {
-            if(file.isDirectory()) {
-                result = true;
-            }
-            else {
-                result = false;
-            }
-        }
-        else {
-            result = false;
-        }
+        boolean result;
+        result = file.exists() && file.isDirectory();
 
         if(result) {
             try {
@@ -242,9 +234,39 @@ public class Gallerie extends Activity implements View.OnClickListener {
         String name = item.getName();
         File file = new File(this.current_dir + "/" + name);
         if(file.isDirectory()) {
-            this.current_dir += ("/" + name);
-            this.openDir(this.current_dir);
-            this.updateView();
+            // the selected item is a directory
+            // if in selection mode, then select or unselect all in dir
+            // else, open dir
+            if(!item.getName().equals("..") && this.if_select_mode) {
+                String path = this.getFilePath(file);
+                String[] children = file.list();
+                if(this.list_selected_items.contains(path)) {
+                    for(String child : children) {
+                        child = path + "/" + child;
+                        if(this.list_selected_items.contains(child)) {
+                            this.list_selected_items.remove(child);
+                        }
+                    }
+                    this.list_selected_items.remove(path);
+                    item.setSymbol(this.icon_dir);
+                }
+                else {
+                    for(String child : children) {
+                        child = path + "/" + child;
+                        if(!this.list_selected_items.contains(child)) {
+                            this.list_selected_items.add(child);
+                        }
+                    }
+                    this.list_selected_items.add(path);
+                    item.setSymbol(this.markAsSelected(item.getSymbol()));
+                }
+                this.gridview_items.invalidateViews();
+            }
+            else {
+                this.current_dir += ("/" + name);
+                this.openDir(this.current_dir);
+                this.updateView();
+            }
         }
         else if(name.indexOf('.') < 0) {
             this.alert("Cannot find suffix of file");
@@ -258,11 +280,9 @@ public class Gallerie extends Activity implements View.OnClickListener {
                 if(this.if_select_mode) {
                     String path = this.getFilePath(file);
                     if(this.list_selected_items.contains(path)) {
-                        // TODO fails to check the existence of selected items
                         BitmapFactory.Options options = new BitmapFactory.Options();
-
-                        this.list_selected_items.remove(path);
                         options.inJustDecodeBounds = false;
+                        this.list_selected_items.remove(path);
                         item.setSymbol(ThumbnailUtils.extractThumbnail(
                                 BitmapFactory.decodeFile(path, options),
                                 this.width_icon, this.width_icon));
@@ -271,6 +291,7 @@ public class Gallerie extends Activity implements View.OnClickListener {
                         this.list_selected_items.add(path);
                         item.setSymbol(this.markAsSelected(item.getSymbol()));
                     }
+                    this.gridview_items.invalidateViews();
                 }
                 else {
                     Intent in = new Intent(this, SwissKnife.class);
@@ -294,8 +315,8 @@ public class Gallerie extends Activity implements View.OnClickListener {
     }
 
     private void updateView() {
-        this.gridview_items_adapter = new GridViewAdapter(this, R.layout.gallerie_item, this.getData());
-        this.gridview_items.setAdapter(this.gridview_items_adapter);
+        GridViewAdapter gridview_items_adapter = new GridViewAdapter(this, R.layout.gallerie_item, this.getData());
+        this.gridview_items.setAdapter(gridview_items_adapter);
     }
 
     @Override
@@ -316,7 +337,7 @@ public class Gallerie extends Activity implements View.OnClickListener {
         this.button_back.setOnClickListener(this);
 
         this.if_select_mode = false;
-        this.list_selected_items = new LinkedList<String>();
+        this.list_selected_items = new LinkedList<>();
 
         this.textview_current_dir = (TextView)findViewById(R.id.textview_gallerie_current_dir);
 
@@ -364,7 +385,6 @@ public class Gallerie extends Activity implements View.OnClickListener {
                 if(this.if_select_mode) {
                     this.button_set_sel_mode.setText("Copy");
                     this.button_back.setText("Unsel");
-                    this.list_selected_items.clear();
                 }
                 else {
                     this.button_set_sel_mode.setText("Sel");
@@ -372,6 +392,8 @@ public class Gallerie extends Activity implements View.OnClickListener {
 
                     for(String str: this.list_selected_items) {
                         File src = new File(str);
+                        if(src.isDirectory()) continue;
+
                         String filename = src.getName();
                         File dst = new File(Environment.getExternalStorageDirectory()
                                 + getString(R.string.workshop_dir) + "/" + filename);
@@ -381,16 +403,18 @@ public class Gallerie extends Activity implements View.OnClickListener {
                             OutputStream output_stream = new FileOutputStream(dst);
                             long size = src.length();
                             byte[] bytes = new byte[(int)size];
-                            input_stream.read(bytes);                            output_stream.write(bytes);
+                            input_stream.read(bytes);
+                            output_stream.write(bytes);
                             output_stream.close();
                             input_stream.close();
                         } catch(FileNotFoundException e) {
-                            this.alert("Some files not found(Internal error)");
+                            this.alert(str + " not found(Internal error)");
                         } catch(IOException e) {
-                            this.alert("Writing failed(Internal error)");
+                            this.alert(str + " failed(Internal error)");
                         }
                     }
                 }
+                this.list_selected_items.clear();
                 break;
 
             case R.id.button_gallery_internal:
