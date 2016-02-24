@@ -271,13 +271,13 @@ public class LiveStream extends Activity implements View.OnClickListener {
                             this.filter.prepareForYUV(this.size_image);
                             this.image_reader = ImageReader.newInstance(
                                     this.size_image.getWidth(), this.size_image.getHeight(),
-                                    ImageFormat.YUV_420_888, 3);
+                                    ImageFormat.YUV_420_888, 1);
                         }
                         else {
                             this.filter.prepareForBitmap(this.size_image);
                             this.image_reader = ImageReader.newInstance(
                                     this.size_image.getWidth(), this.size_image.getHeight(),
-                                    ImageFormat.JPEG, 3);
+                                    ImageFormat.JPEG, 1);
                         }
 
                         this.current_image = Bitmap.createBitmap(this.size_image.getHeight(),
@@ -363,6 +363,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
             new ImageReader.OnImageAvailableListener() {
                 @Override
                 public void onImageAvailable(ImageReader reader) {
+                    filter.waitTillBatchEnd();
                     background_handler.post(new ImageSaver(reader.acquireLatestImage()));
                 }
             };
@@ -384,7 +385,8 @@ public class LiveStream extends Activity implements View.OnClickListener {
         }*/
         @Override
         public void run() {
-            if(filter.ifNotReadyForVideoInput()) { return; }
+            if(filter.ifNotReadyForVideoInput()) return;
+            if(image == null) return;
 
             if(if_format_yuv) {
                 ByteBuffer buffer_y = image.getPlanes()[0].getBuffer();
@@ -485,13 +487,13 @@ public class LiveStream extends Activity implements View.OnClickListener {
             this.filter.prepareForYUV(this.size_image);
             this.image_reader = ImageReader.newInstance(
                     this.size_image.getWidth(), this.size_image.getHeight(),
-                    ImageFormat.YUV_420_888, 3);
+                    ImageFormat.YUV_420_888, 1);
         }
         else {
             this.filter.prepareForBitmap(this.size_image);
             this.image_reader = ImageReader.newInstance(
                     this.size_image.getWidth(), this.size_image.getHeight(),
-                    ImageFormat.JPEG, 3);
+                    ImageFormat.JPEG, 1);
         }
 
         this.image_reader.setOnImageAvailableListener(this.image_reader_listener,
