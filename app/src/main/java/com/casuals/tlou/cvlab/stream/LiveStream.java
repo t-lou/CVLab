@@ -80,7 +80,6 @@ public class LiveStream extends Activity implements View.OnClickListener {
     private Size size_preview;
     private Size size_image;
     private Size[] size_image_list;
-    private Size[] size_jpeg_image_list;
     private String[] size_image_list_str;
     private boolean if_format_yuv;
     private TextureView camera_preview;
@@ -198,6 +197,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
                     }, null);
         }
         catch (CameraAccessException e) {
+            throw new RuntimeException("Camera access error.", e);
         }
     }
 
@@ -216,6 +216,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
             this.background_handler_thread = null;
             this.background_handler = null;
         } catch (InterruptedException e) {
+            throw new RuntimeException("Interrupted while trying to close background thread", e);
         }
     }
 
@@ -241,6 +242,8 @@ public class LiveStream extends Activity implements View.OnClickListener {
                 CameraCharacteristics chars = camera_manager.getCameraCharacteristics(str);
                 if(chars.get(CameraCharacteristics.LENS_FACING) != CameraCharacteristics.LENS_FACING_FRONT) {
                     if(this.camera_id_default.length() == 0) {
+                        Size[] size_jpeg_image_list;
+
                         this.camera_id_default = str;
                         config = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
 
@@ -250,11 +253,11 @@ public class LiveStream extends Activity implements View.OnClickListener {
                                 config.getOutputSizes(SurfaceTexture.class),
                                 this.canvas.getWidth(), this.canvas.getHeight());
                         this.size_image_list = config.getOutputSizes(SurfaceTexture.class);
-                        this.size_jpeg_image_list = config.getOutputSizes(ImageFormat.JPEG);
+                        size_jpeg_image_list = config.getOutputSizes(ImageFormat.JPEG);
                         this.size_image_list_str = new String[this.size_image_list.length];
                         for(int i = 0; i < this.size_image_list.length; i++) {
                             String suffix = "";
-                            for(Size size : this.size_jpeg_image_list) {
+                            for(Size size : size_jpeg_image_list) {
                                 if((this.size_image_list[i].getHeight() + this.size_image_list[i].getWidth()
                                         == (size.getWidth() + size.getHeight()))) {
                                     suffix = "*";
@@ -292,6 +295,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
             }
         }
         catch(CameraAccessException e) {
+            throw new RuntimeException("Camera access error.", e);
         }
     }
 
@@ -330,7 +334,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
             camera_manager.openCamera(this.camera_id_default, this.camera_dev_callback,
                     this.background_handler);
         } catch (CameraAccessException e) {
-
+            throw new RuntimeException("Camera access error.", e);
         } catch (InterruptedException e) {
             throw new RuntimeException("Interrupted while trying to lock camera opening.", e);
         }
