@@ -51,28 +51,35 @@
                 android:layout_height="wrap_content"
                 android:text="Home"
                 android:id="@+id/button_gallery_warehouse"
-                android:layout_weight="0.25" />
+                android:layout_weight="0.2" />
 
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="SD Card"
+                android:text="Exte"
                 android:id="@+id/button_gallery_sdcard"
-                android:layout_weight="0.25" />
+                android:layout_weight="0.2" />
 
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Internal"
+                android:text="Inte"
                 android:id="@+id/button_gallery_internal"
-                android:layout_weight="0.25" />
+                android:layout_weight="0.2" />
+
+            <Button
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Sel"
+                android:id="@+id/button_gallery_selectitem"
+                android:layout_weight="0.2" />
 
             <Button
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Back"
                 android:id="@+id/button_gallery_back"
-                android:layout_weight="0.25" />
+                android:layout_weight="0.2" />
         </LinearLayout>
 
     </LinearLayout>

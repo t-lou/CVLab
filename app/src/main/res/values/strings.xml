@@ -24,4 +24,5 @@
     <string name="img_dir">/cvlab/warehouse</string>
     <string name="cache_dir">/cvlab/cache</string>
     <string name="script_dir">/cvlab/scripts</string>
+    <string name="workshop_dir">/cvlab/workshop</string>
 </resources>

@@ -9,8 +9,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.media.ThumbnailUtils;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,9 +24,14 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.Scanner;
 
 /*
@@ -93,7 +100,8 @@ public class Gallerie extends Activity implements View.OnClickListener {
     private Button button_set_dir_home;
     private Button button_set_dir_sdcard;
     private Button button_set_dir_internal;
-    private Button button_set_dir_back;
+    private Button button_set_sel_mode;
+    private Button button_back;
 
     private TextView textview_current_dir;
 
@@ -101,6 +109,34 @@ public class Gallerie extends Activity implements View.OnClickListener {
     private String[] entries;
     private Bitmap icon_file;
     private Bitmap icon_dir;
+    private Bitmap icon_image_selected;
+    private int width_icon;
+
+    private boolean if_select_mode;
+    private LinkedList<String> list_selected_items;
+
+    private boolean ifImageSuffix(String suffix) {
+        return suffix.compareTo(".png") == 0 || suffix.compareTo(".jpeg") == 0
+                || suffix.compareTo(".jpg") == 0 || suffix.compareTo(".dng") == 0
+                || suffix.compareTo(".tiff") == 0;
+    }
+
+    private String getFilePath(File file) {
+        String path = "";
+        try {
+            path = file.getCanonicalPath();
+        } catch (IOException e) {
+            path = file.getAbsolutePath();
+        } finally {
+            return path;
+        }
+    }
+
+    private Bitmap markAsSelected(Bitmap target) {
+        Canvas canvas = new Canvas(target);
+        canvas.drawBitmap(this.icon_image_selected, 0, 0, null);
+        return target;
+    }
 
     private ArrayList<GallerieItem> getData() {
         final ArrayList<GallerieItem> image_items = new ArrayList<>();
@@ -129,11 +165,7 @@ public class Gallerie extends Activity implements View.OnClickListener {
                 }
                 else {
                     suffix = str.substring(str.lastIndexOf('.')).toLowerCase();
-                    if(suffix.compareTo(".png") == 0
-                            || suffix.compareTo(".jpeg") == 0
-                            || suffix.compareTo(".jpg") == 0
-                            || suffix.compareTo(".dng") == 0
-                            || suffix.compareTo(".tiff") == 0) {
+                    if(this.ifImageSuffix(suffix)) {
                         // get the width and height and try to open downsampled image
                         options.inSampleSize = 1;
                         options.inJustDecodeBounds = true;
@@ -141,7 +173,7 @@ public class Gallerie extends Activity implements View.OnClickListener {
 
                         file_width = options.outWidth;
                         file_height = options.outHeight;
-                        while(file_height / 2 > 100 && file_width / 2 > 100) {
+                        while(file_height / 2 > this.width_icon && file_width / 2 > this.width_icon) {
                             options.inSampleSize++;
                             file_height /= 2;
                             file_width /= 2;
@@ -149,7 +181,11 @@ public class Gallerie extends Activity implements View.OnClickListener {
 
                         options.inJustDecodeBounds = false;
                         bitmap = ThumbnailUtils.extractThumbnail(
-                                BitmapFactory.decodeFile(file.getAbsolutePath(), options), 100, 100);
+                                BitmapFactory.decodeFile(file.getAbsolutePath(), options),
+                                this.width_icon, this.width_icon);
+                        if(this.list_selected_items.contains(this.getFilePath(file))) {
+                            bitmap = this.markAsSelected(bitmap);
+                        }
                     }
                     else {
                         bitmap = this.icon_file.copy(conf, true);
@@ -215,14 +251,32 @@ public class Gallerie extends Activity implements View.OnClickListener {
         }
         else {
             String suffix = name.substring(name.lastIndexOf('.')).toLowerCase();
-            if(suffix.compareTo(".png") == 0
-                    || suffix.compareTo(".jpeg") == 0
-                    || suffix.compareTo(".jpg") == 0
-                    || suffix.compareTo(".dng") == 0
-                    || suffix.compareTo(".tiff") == 0) {
-                Intent in = new Intent(this, SwissKnife.class);
-                in.putExtra("path", file.getAbsolutePath());
-                startActivity(in);
+            if(this.ifImageSuffix(suffix)) {
+                // the selected item is an image
+                // if in selection mode, then select or unselect
+                // else, open editor
+                if(this.if_select_mode) {
+                    String path = this.getFilePath(file);
+                    if(this.list_selected_items.contains(path)) {
+                        // TODO fails to check the existence of selected items
+                        BitmapFactory.Options options = new BitmapFactory.Options();
+
+                        this.list_selected_items.remove(path);
+                        options.inJustDecodeBounds = false;
+                        item.setSymbol(ThumbnailUtils.extractThumbnail(
+                                BitmapFactory.decodeFile(path, options),
+                                this.width_icon, this.width_icon));
+                    }
+                    else {
+                        this.list_selected_items.add(path);
+                        item.setSymbol(this.markAsSelected(item.getSymbol()));
+                    }
+                }
+                else {
+                    Intent in = new Intent(this, SwissKnife.class);
+                    in.putExtra("path", file.getAbsolutePath());
+                    startActivity(in);
+                }
             }
             else if(suffix.compareTo(".func") == 0) {
                 try {
@@ -252,20 +306,31 @@ public class Gallerie extends Activity implements View.OnClickListener {
         this.button_set_dir_home = (Button)findViewById(R.id.button_gallery_warehouse);
         this.button_set_dir_sdcard = (Button)findViewById(R.id.button_gallery_sdcard);
         this.button_set_dir_internal = (Button)findViewById(R.id.button_gallery_internal);
-        this.button_set_dir_back = (Button)findViewById(R.id.button_gallery_back);
+        this.button_set_sel_mode = (Button)findViewById(R.id.button_gallery_selectitem);
+        this.button_back = (Button)findViewById(R.id.button_gallery_back);
 
         this.button_set_dir_home.setOnClickListener(this);
         this.button_set_dir_sdcard.setOnClickListener(this);
         this.button_set_dir_internal.setOnClickListener(this);
-        this.button_set_dir_back.setOnClickListener(this);
+        this.button_set_sel_mode.setOnClickListener(this);
+        this.button_back.setOnClickListener(this);
+
+        this.if_select_mode = false;
+        this.list_selected_items = new LinkedList<String>();
 
         this.textview_current_dir = (TextView)findViewById(R.id.textview_gallerie_current_dir);
 
         this.openDir(System.getenv("EXTERNAL_STORAGE"));
+        this.width_icon = 100;
         this.icon_dir = ThumbnailUtils.extractThumbnail(
-                BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_dir_icon), 100, 100);
+                BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_dir_icon),
+                this.width_icon, this.width_icon);
         this.icon_file = ThumbnailUtils.extractThumbnail(
-                BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_file_icon), 100, 100);
+                BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_file_icon),
+                this.width_icon, this.width_icon);
+        this.icon_image_selected = ThumbnailUtils.extractThumbnail(
+                BitmapFactory.decodeResource(getResources(), R.drawable.gallerie_icon_selected),
+                this.width_icon, this.width_icon);
 
         this.gridview_items = (GridView)findViewById(R.id.gridview_gallerie);
         this.updateView();
@@ -285,8 +350,47 @@ public class Gallerie extends Activity implements View.OnClickListener {
 
         switch (v.getId()) {
             case R.id.button_gallery_back:
-                in = new Intent(this, main.class);
-                startActivity(in);
+                if(this.if_select_mode) {
+                    this.list_selected_items.clear();
+                }
+                else {
+                    in = new Intent(this, main.class);
+                    startActivity(in);
+                }
+                break;
+
+            case R.id.button_gallery_selectitem:
+                this.if_select_mode = !this.if_select_mode;
+                if(this.if_select_mode) {
+                    this.button_set_sel_mode.setText("Copy");
+                    this.button_back.setText("Unsel");
+                    this.list_selected_items.clear();
+                }
+                else {
+                    this.button_set_sel_mode.setText("Sel");
+                    this.button_back.setText("Back");
+
+                    for(String str: this.list_selected_items) {
+                        File src = new File(str);
+                        String filename = src.getName();
+                        File dst = new File(Environment.getExternalStorageDirectory()
+                                + getString(R.string.workshop_dir) + "/" + filename);
+
+                        try {
+                            InputStream input_stream = new FileInputStream(src);
+                            OutputStream output_stream = new FileOutputStream(dst);
+                            long size = src.length();
+                            byte[] bytes = new byte[(int)size];
+                            input_stream.read(bytes);                            output_stream.write(bytes);
+                            output_stream.close();
+                            input_stream.close();
+                        } catch(FileNotFoundException e) {
+                            this.alert("Some files not found(Internal error)");
+                        } catch(IOException e) {
+                            this.alert("Writing failed(Internal error)");
+                        }
+                    }
+                }
                 break;
 
             case R.id.button_gallery_internal:
