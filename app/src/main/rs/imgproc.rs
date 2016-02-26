@@ -185,6 +185,8 @@ uchar4 __attribute__((kernel)) decode_with_context(uchar4 in, uint32_t x, uint32
     return rsPackColorTo8888(pixel);
 }
 
+
+
 uchar4 __attribute__((kernel)) transpose(uchar4 in, uint32_t x, uint32_t y) {
     return rsGetElementAt_uchar4(context, y, x);
 }
@@ -205,7 +207,7 @@ uchar4 __attribute__((kernel)) rgb_to_bw(uchar4 in) {
     return rsPackColorTo8888(f4);
 }
 
-uchar4 __attribute__((kernel)) up_pyramid(uchar4 in, uint32_t x, uint32_t y) {
+/*uchar4 __attribute__((kernel)) up_pyramid(uchar4 in, uint32_t x, uint32_t y) {
     union CONVERTOR value;
     if(index_channel < 0) {
         int4 tmp = (int4)(0, 0, 0, 0);
@@ -242,7 +244,7 @@ uchar4 __attribute__((kernel)) up_pyramid(uchar4 in, uint32_t x, uint32_t y) {
         value._float /= 4.0f;
     }
     return value._uchar4;
-}
+}*/
 
 uchar4 __attribute__((kernel)) rescale(uchar4 in) {
     union CONVERTOR value;

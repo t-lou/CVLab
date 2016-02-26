@@ -69,8 +69,8 @@ public class Filter {
     private int id_channel;
     private int height, width;
 
-    private final ReentrantLock lock = new ReentrantLock();
-    private final ReentrantLock lock_batch = new ReentrantLock();
+    private ReentrantLock lock = new ReentrantLock();
+    private ReentrantLock lock_batch = new ReentrantLock();
 
     private FilterItem[] batch_items;
 
@@ -195,14 +195,14 @@ public class Filter {
     }
 
     public boolean ifNotReadyForVideoInput() {
-        return allocation_output_rgba == null;
+        return allocation_output_rgba == null || this.index_allocation < 0;
     }
 
     public void resetData() {
         for(int i = 0; i < this.num_allocation; i++) {
             this.allocations[i] = null;
         }
-        this.index_allocation = -1;
+        this.index_allocation = 0;
         this.allocation_context = null;
     }
 
@@ -477,8 +477,7 @@ public class Filter {
     }
 
     private float[] createLaplacianMask() {
-        float[] mask = {-0.5f, -1.0f, -0.5f, -1.0f, 6.0f, -1.0f, -0.5f, -1.0f, -0.5f};
-        return mask;
+        return new float[]{-0.5f, -1.0f, -0.5f, -1.0f, 6.0f, -1.0f, -0.5f, -1.0f, -0.5f};
     }
 
     private float[] createGaussianLaplacianMask(int radius, float sigma) {

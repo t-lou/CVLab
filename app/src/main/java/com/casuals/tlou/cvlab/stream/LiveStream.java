@@ -33,7 +33,6 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
-import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
@@ -65,6 +64,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -82,6 +82,9 @@ public class LiveStream extends Activity implements View.OnClickListener {
     private Size[] size_image_list;
     private String[] size_image_list_str;
     private boolean if_format_yuv;
+    private boolean if_testing;
+    private LinkedList<String> list_test_size_str;
+    private LinkedList<Size> list_test_size;
     private TextureView camera_preview;
     private ImageView canvas;
     private Bitmap current_image;
@@ -177,19 +180,36 @@ public class LiveStream extends Activity implements View.OnClickListener {
                     new CameraCaptureSession.StateCallback() {
                         @Override
                         public void onConfigured(CameraCaptureSession session) {
-                            if (camera_dev == null) {
-                                return;
-                            }
+                            if (camera_dev == null) { return; }
+
+                            camera_capture_session = session;
+                            preview_capture_request_builder.set(CaptureRequest.CONTROL_AF_MODE,
+                                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                            preview_capture_request = preview_capture_request_builder.build();
+
                             try {
-                                camera_capture_session = session;
-                                preview_capture_request_builder.set(CaptureRequest.CONTROL_AF_MODE,
-                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                                preview_capture_request = preview_capture_request_builder.build();
                                 camera_capture_session.setRepeatingRequest(preview_capture_request,
                                         camera_capture_session_callback, background_handler);
                             } catch (CameraAccessException e) {
                                 e.printStackTrace();
+                            } catch (IllegalStateException e) {
+                                e.printStackTrace();
                             }
+
+                            /*while(if_unsuccessful) {
+                                try {
+                                    camera_capture_session.setRepeatingRequest(preview_capture_request,
+                                            camera_capture_session_callback, background_handler);
+                                    if_unsuccessful = false;
+                                } catch (CameraAccessException e) {
+                                    e.printStackTrace();
+                                    if_unsuccessful = true;
+                                } catch (IllegalStateException e) {
+                                    e.printStackTrace();
+                                    if_unsuccessful = true;
+                                    try {Thread.sleep(200);} catch(InterruptedException ei) {}
+                                }
+                            }*/
                         }
 
                         @Override
@@ -392,53 +412,79 @@ public class LiveStream extends Activity implements View.OnClickListener {
             if(filter.ifNotReadyForVideoInput()) return;
             if(image == null) return;
 
-            if(if_format_yuv) {
+            if(if_testing && if_format_yuv) {
                 ByteBuffer buffer_y = image.getPlanes()[0].getBuffer();
-                ByteBuffer buffer_u = image.getPlanes()[1].getBuffer();
-                ByteBuffer buffer_v = image.getPlanes()[2].getBuffer();
-                int len_y = buffer_y.remaining(), len_u = buffer_u.remaining(),
-                        len_v = buffer_v.remaining();
-                byte[] bytes = new byte[len_y + len_u + len_v];
-                buffer_y.get(bytes, 0, len_y);
-                buffer_u.get(bytes, len_y, len_u);
-                buffer_v.get(bytes, len_y + len_u, len_v);
-                filter.setDataFromYUV(bytes);
+                int len_y = buffer_y.remaining();
+                if(size_image.getHeight() * size_image.getWidth() == len_y) {
+                    String[] strs = size_image_list_str.clone();
+                    Size[] sizes = size_image_list.clone();
+                    size_image_list_str = new String[strs.length + 1];
+                    size_image_list = new Size[strs.length + 1];
+                    for(int i = 0; i < strs.length; i++) size_image_list_str[i] = strs[i];
+                    for(int i = 0; i < strs.length; i++) size_image_list[i] = sizes[i];
+                    size_image_list_str[strs.length] = list_test_size_str.get(0);
+                    size_image_list[strs.length] = list_test_size.get(0);
+                }
+                list_test_size.remove(0);
+                list_test_size_str.remove(0);
+                if(list_test_size.size() > 0) {
+                    size_image = list_test_size.get(0);
+                }
+                else {
+                    if_testing = false;
+                    size_image = size_image_list[0];
+                    alert("Resolution for YUV format selected");
+                }
+                restartCameraSession();
             }
             else {
-                ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-                byte[] bytes = new byte[buffer.remaining()];
-                buffer.get(bytes);
-                filter.setDataFromBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.length));
-            }
-
-            filter.doBatch();
-            filter.waitTillBatchEnd();
-            filter.copyCurrent(current_image);
-
-            float average_time = 0.0f;
-            long current_time_millisec = System.currentTimeMillis();
-            time_intervals[time_interval_count] =
-                    (float)(current_time_millisec - last_time_millisec) / 1000.0f;
-            last_time_millisec = current_time_millisec;
-            time_interval_count--;
-            if(time_interval_count < 0) {
-                for(int i = 0; i < 5; i++) {
-                    average_time += time_intervals[i];
+                if (if_format_yuv) {
+                    ByteBuffer buffer_y = image.getPlanes()[0].getBuffer();
+                    ByteBuffer buffer_u = image.getPlanes()[1].getBuffer();
+                    ByteBuffer buffer_v = image.getPlanes()[2].getBuffer();
+                    int len_y = buffer_y.remaining(), len_u = buffer_u.remaining(),
+                            len_v = buffer_v.remaining();
+                    byte[] bytes = new byte[len_y + len_u + len_v];
+                    buffer_y.get(bytes, 0, len_y);
+                    buffer_u.get(bytes, len_y, len_u);
+                    buffer_v.get(bytes, len_y + len_u, len_v);
+                    filter.setDataFromYUV(bytes);
+                } else {
+                    ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+                    byte[] bytes = new byte[buffer.remaining()];
+                    buffer.get(bytes);
+                    filter.setDataFromBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.length));
                 }
-                average_time /= 5.0f;
-                time_interval_count = 4;
-            }
-            final float average_time_copy = average_time;
 
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    canvas.setImageBitmap(current_image);
-                    if (average_time_copy > 0.0f) {
-                        info_display.setText(String.format("%.2f", 1.0f / average_time_copy) + " FPS");
+                filter.doBatch();
+                filter.waitTillBatchEnd();
+                filter.copyCurrent(current_image);
+
+                float average_time = 0.0f;
+                long current_time_millisec = System.currentTimeMillis();
+                time_intervals[time_interval_count] =
+                        (float) (current_time_millisec - last_time_millisec) / 1000.0f;
+                last_time_millisec = current_time_millisec;
+                time_interval_count--;
+                if (time_interval_count < 0) {
+                    for (int i = 0; i < 5; i++) {
+                        average_time += time_intervals[i];
                     }
+                    average_time /= 5.0f;
+                    time_interval_count = 4;
                 }
-            });
+                final float average_time_copy = average_time;
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        canvas.setImageBitmap(current_image);
+                        if (average_time_copy > 0.0f) {
+                            info_display.setText(String.format("%.2f", 1.0f / average_time_copy) + " FPS");
+                        }
+                    }
+                });
+            }
 
             image.close();
 
@@ -505,9 +551,18 @@ public class LiveStream extends Activity implements View.OnClickListener {
 
         this.createCameraPreviewSession();
 
-        this.info_display.setText("Here displays Information like framerate");
+        // this.info_display.setText("Here displays Information like framerate");
         this.last_time_millisec = System.currentTimeMillis();
         this.time_interval_count = 4;
+    }
+
+    private void alert(String message) {
+        AlertDialog.Builder alert;
+
+        alert = new AlertDialog.Builder(this);
+        alert.setMessage(message)
+                .setCancelable(true);
+        alert.show();
     }
 
     private void selectImageResolution() {
@@ -543,7 +598,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
         dialog_builder.setPositiveButton("Try it", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
                 if_format_yuv = checkbox_if_fuv.isChecked();
-                if(size_image_list.length > 0) {
+                if (size_image_list.length > 0) {
                     int id_resolution = (int) spinner_resolutions.getSelectedItemId();
                     size_image = size_image_list[id_resolution];
                     button_sel_resolution.setText(size_image.getHeight()
@@ -552,6 +607,21 @@ public class LiveStream extends Activity implements View.OnClickListener {
                     restartCameraSession();
                 }
 
+            }
+        });
+        dialog_builder.setNeutralButton("Trim", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                if_testing = true;
+                list_test_size = new LinkedList<>();
+                list_test_size_str = new LinkedList<>();
+                for(int i = 0; i < size_image_list.length; i++) {
+                    list_test_size.add(size_image_list[i]);
+                    list_test_size_str.add(size_image_list_str[i]);
+                }
+                size_image_list = new Size[0];
+                size_image_list_str = new String[0];
+                size_image = list_test_size.get(0);
+                restartCameraSession();
             }
         });
         dialog_builder.setNegativeButton("No", new DialogInterface.OnClickListener() {
@@ -590,6 +660,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
         this.size_image_list_str = new String[0];
         this.size_image_list = new Size[0];
         this.if_format_yuv = true;
+        this.if_testing = false;
 
         this.debug = (TextView)findViewById(R.id.textView);
     }
