@@ -396,17 +396,7 @@ public class LiveStream extends Activity implements View.OnClickListener {
         private ImageSaver(Image image_local) {
             image = image_local;
         }
-        /*private int convertYUVtoRGB(int y, int u, int v) {
-            int r,g,b;
 
-            r = y + (int)1.402f*v;
-            g = y - (int)(0.344f*u +0.714f*v);
-            b = y + (int)1.772f*u;
-            r = r>255? 255 : r<0 ? 0 : r;
-            g = g>255? 255 : g<0 ? 0 : g;
-            b = b>255? 255 : b<0 ? 0 : b;
-            return 0xFF000000 | (r<<16) | (g<<8) | (b<<0);
-        }*/
         @Override
         public void run() {
             if(filter.ifNotReadyForVideoInput()) return;
@@ -487,33 +477,6 @@ public class LiveStream extends Activity implements View.OnClickListener {
             }
 
             image.close();
-
-            /*int width = size_image.getWidth();
-            int height = size_image.getHeight();
-            int size = width*height;
-            int[] pixels = new int[size];
-            int u, v, y1, y2, y3, y4;
-
-            for(int i=0, k=0; i < size; i+=2, k+=1) {
-                y1 = bytes[i  ]&0xff;
-                y2 = bytes[i+1]&0xff;
-                y3 = bytes[width+i  ]&0xff;
-                y4 = bytes[width+i+1]&0xff;
-
-                u = bytes[len_y+k+len_u]&0xff;
-                v = bytes[len_y+k]&0xff;
-                u = u-128;
-                v = v-128;
-
-                pixels[i  ] = convertYUVtoRGB(y1, u, v);
-                pixels[i+1] = convertYUVtoRGB(y2, u, v);
-                pixels[width+i  ] = convertYUVtoRGB(y3, u, v);
-                pixels[width+i+1] = convertYUVtoRGB(y4, u, v);
-
-                if (i!=0 && (i+2)%width==0)
-                    i+=width;
-            }
-            current_image = Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888);*/
         }
     }
 

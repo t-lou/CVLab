@@ -185,7 +185,25 @@ uchar4 __attribute__((kernel)) decode_with_context(uchar4 in, uint32_t x, uint32
     return rsPackColorTo8888(pixel);
 }
 
+uchar4 __attribute__((kernel)) yvu2rgb(uchar4 in, uint32_t x, uint32_t y) {
+    int index_uv = ((width - 1 - x) / 2) * (height / 2) + y / 2;
+    int y_value = (int)rsGetElementAt_uchar(context, (width - 1 - x) * height + y);
+    int u_value = (int)rsGetElementAt_uchar(context, index_uv + width * height) - 128;
+    int v_value = (int)rsGetElementAt_uchar(context, index_uv + width * height * 5 / 4) - 128;
 
+    int r_value = y_value + (int)(1.402f * (float)v_value);
+    int g_value = y_value - (int)(0.344f * (float)u_value + 0.714f * (float)v_value);
+    int b_value = y_value + (int)(1.772f * (float)u_value);
+    r_value = r_value > 255 ? 255 : (r_value < 0 ? 0 : r_value);
+    g_value = g_value > 255 ? 255 : (g_value < 0 ? 0 : g_value);
+    b_value = b_value > 255 ? 255 : (b_value < 0 ? 0 : b_value);
+
+    // uchar char_y = rsGetElementAt_uchar(context, (width - 1 - x) * height + y);
+    // uchar char_u = rsGetElementAt_uchar(context, index_uv + width * height);
+    // uchar char_v = rsGetElementAt_uchar(context, index_uv + width * height * 5 / 4);
+
+    return rsPackColorTo8888((float)r_value / 255.0f, (float)g_value / 255.0f, (float)b_value / 255.0f);
+}
 
 uchar4 __attribute__((kernel)) transpose(uchar4 in, uint32_t x, uint32_t y) {
     return rsGetElementAt_uchar4(context, y, x);

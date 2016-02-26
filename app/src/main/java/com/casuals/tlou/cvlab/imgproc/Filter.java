@@ -7,7 +7,6 @@ import android.media.ThumbnailUtils;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
-import android.renderscript.ScriptIntrinsicYuvToRGB;
 import android.renderscript.Type;
 import android.util.Size;
 
@@ -64,8 +63,6 @@ public class Filter {
     private Allocation allocation_input_yuv;
     private Allocation allocation_output_rgba;
 
-    private ScriptIntrinsicYuvToRGB yuv_rgba_convertor;
-
     private int id_channel;
     private int height, width;
 
@@ -88,7 +85,6 @@ public class Filter {
     public void init(int numAllocation) {
         this.batch_items = null;
 
-        this.allocation_output_rgba = null;
         this.allocation_input_yuv = null;
         this.allocations = new Allocation[numAllocation];
         for(int i = 0; i < numAllocation; i++) {
@@ -113,17 +109,18 @@ public class Filter {
         this.height = source.getHeight();
         this.width = source.getWidth();
 
+        this.script.set_height(this.height);
+        this.script.set_width(this.width);
+
         this.id_channel = -1;
     }
 
     public void setDataFromYUV(byte[] data) {
         this.lock.lock();
         this.allocation_input_yuv.copyFrom(data);
-        this.yuv_rgba_convertor.setInput(this.allocation_input_yuv);
-        this.yuv_rgba_convertor.forEach(this.allocation_output_rgba);
-        this.script.set_context(this.allocation_output_rgba);
-        this.script.forEach_transpose(
-                this.allocations[this.index_allocation], this.allocations[this.index_allocation]);
+
+        this.script.set_context(this.allocation_input_yuv);
+        this.script.forEach_yvu2rgb(this.allocation_context, this.allocations[this.index_allocation]);
 
         this.id_channel = -1;
         this.lock.unlock();
@@ -133,8 +130,8 @@ public class Filter {
         this.width = size.getHeight();
         this.height = size.getWidth();
 
-        this.yuv_rgba_convertor = ScriptIntrinsicYuvToRGB.create(this.render_script,
-                Element.RGBA_8888(this.render_script));
+        this.script.set_width(this.width);
+        this.script.set_height(this.height);
 
         Type.Builder type_yuv = new Type.Builder(this.render_script, Element.U8(this.render_script))
                 .setX(this.height).setY(this.width).setYuvFormat(ImageFormat.NV21);
@@ -142,11 +139,6 @@ public class Filter {
                 type_yuv.create(), Allocation.USAGE_SCRIPT);
 
         Type.Builder type_rgba = new Type.Builder(this.render_script,
-                Element.RGBA_8888(this.render_script)).setX(this.height).setY(this.width);
-        this.allocation_output_rgba = Allocation.createTyped(this.render_script,
-                type_rgba.create(), Allocation.USAGE_SCRIPT);
-
-        type_rgba = new Type.Builder(this.render_script,
                 Element.RGBA_8888(this.render_script)).setX(this.width).setY(this.height);
         this.allocation_context = Allocation.createTyped(this.render_script,
                 type_rgba.create(), Allocation.USAGE_SCRIPT);
@@ -178,6 +170,9 @@ public class Filter {
         this.width = size.getHeight();
         this.height = size.getWidth();
 
+        this.script.set_width(this.width);
+        this.script.set_height(this.height);
+
         Type.Builder type_rgba = new Type.Builder(this.render_script,
                 Element.RGBA_8888(this.render_script)).setX(this.width).setY(this.height);
         this.allocation_context = Allocation.createTyped(this.render_script,
@@ -195,7 +190,7 @@ public class Filter {
     }
 
     public boolean ifNotReadyForVideoInput() {
-        return allocation_output_rgba == null || this.index_allocation < 0;
+        return this.allocation_input_yuv == null || this.index_allocation < 0;
     }
 
     public void resetData() {
@@ -302,8 +297,8 @@ public class Filter {
         this.script.set_scale(1.0f);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocations[this.index_allocation]);
-        this.script.set_height(this.height);
-        this.script.set_width(this.width);
+        //this.script.set_height(this.height);
+        //this.script.set_width(this.width);
         this.script.set_radius(radius);
         this.script.forEach_gaussian(
                 this.allocations[this.index_allocation], this.allocations[next_index]);
@@ -326,8 +321,8 @@ public class Filter {
         this.script.set_scale(scale);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocations[this.index_allocation]);
-        this.script.set_height(this.height);
-        this.script.set_width(this.width);
+        //this.script.set_height(this.height);
+        //this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(1);
         this.script.forEach_gaussian(
@@ -354,8 +349,8 @@ public class Filter {
         this.script.set_scale(1.0f);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocations[this.index_allocation]);
-        this.script.set_height(this.height);
-        this.script.set_width(this.width);
+        //this.script.set_height(this.height);
+        //this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
         this.script.forEach_gaussian(
@@ -372,8 +367,8 @@ public class Filter {
         this.preprecess(idChannel);
 
         this.script.set_context(this.allocations[this.index_allocation]);
-        this.script.set_height(this.height);
-        this.script.set_width(this.width);
+        //this.script.set_height(this.height);
+        //this.script.set_width(this.width);
         this.script.set_radius(radius);
         this.script.forEach_mean(
                 this.allocations[this.index_allocation], this.allocations[next_index]);
@@ -397,8 +392,8 @@ public class Filter {
         this.script.set_threshold_value(2.0f * sigma_range * sigma_range);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocations[this.index_allocation]);
-        this.script.set_height(this.height);
-        this.script.set_width(this.width);
+        //this.script.set_height(this.height);
+        //this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
         this.script.forEach_bilateral(
