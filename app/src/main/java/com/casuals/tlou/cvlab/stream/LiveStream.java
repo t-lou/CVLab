@@ -195,21 +195,6 @@ public class LiveStream extends Activity implements View.OnClickListener {
                             } catch (IllegalStateException e) {
                                 e.printStackTrace();
                             }
-
-                            /*while(if_unsuccessful) {
-                                try {
-                                    camera_capture_session.setRepeatingRequest(preview_capture_request,
-                                            camera_capture_session_callback, background_handler);
-                                    if_unsuccessful = false;
-                                } catch (CameraAccessException e) {
-                                    e.printStackTrace();
-                                    if_unsuccessful = true;
-                                } catch (IllegalStateException e) {
-                                    e.printStackTrace();
-                                    if_unsuccessful = true;
-                                    try {Thread.sleep(200);} catch(InterruptedException ei) {}
-                                }
-                            }*/
                         }
 
                         @Override
@@ -287,28 +272,8 @@ public class LiveStream extends Activity implements View.OnClickListener {
                             this.size_image_list_str[i] = this.size_image_list[i].getHeight()
                                     + "x" + this.size_image_list[i].getWidth() + suffix;
                         }
-                        this.button_sel_resolution.setText(this.size_image.getHeight()
-                                + "x" + this.size_image.getWidth());
 
-                        if(this.if_format_yuv) {
-                            this.filter.prepareForYUV(this.size_image);
-                            this.image_reader = ImageReader.newInstance(
-                                    this.size_image.getWidth(), this.size_image.getHeight(),
-                                    ImageFormat.YUV_420_888, 1);
-                        }
-                        else {
-                            this.filter.prepareForBitmap(this.size_image);
-                            this.image_reader = ImageReader.newInstance(
-                                    this.size_image.getWidth(), this.size_image.getHeight(),
-                                    ImageFormat.JPEG, 1);
-                        }
-
-                        this.current_image = Bitmap.createBitmap(this.size_image.getHeight(),
-                                this.size_image.getWidth(), Bitmap.Config.ARGB_8888);
-
-                        this.image_reader.setOnImageAvailableListener(this.image_reader_listener,
-                                background_handler);
-
+                        this.reconfigCameraSession();
                         this.setPreviewTransform(width, height);
                     }
                 }
@@ -388,12 +353,12 @@ public class LiveStream extends Activity implements View.OnClickListener {
                 @Override
                 public void onImageAvailable(ImageReader reader) {
                     filter.waitTillBatchEnd();
-                    background_handler.post(new ImageSaver(reader.acquireLatestImage()));
+                    background_handler.post(new ImageProcessor(reader.acquireLatestImage()));
                 }
             };
-    private class ImageSaver implements Runnable {
+    private class ImageProcessor implements Runnable {
         private final Image image;
-        private ImageSaver(Image image_local) {
+        private ImageProcessor(Image image_local) {
             image = image_local;
         }
 
@@ -488,9 +453,12 @@ public class LiveStream extends Activity implements View.OnClickListener {
         ORIENTATIONS.append(Surface.ROTATION_270, 180);
     }
 
-    private void restartCameraSession() {
-        this.camera_capture_session.close();
-        this.image_reader.close();
+    private void reconfigCameraSession() {
+        if(this.camera_capture_session != null) this.camera_capture_session.close();
+        if(this.image_reader != null) {
+            this.image_reader.close();
+            this.image_reader = null;
+        }
         this.filter.resetData();
 
         this.current_image = Bitmap.createBitmap(this.size_image.getHeight(),
@@ -511,7 +479,17 @@ public class LiveStream extends Activity implements View.OnClickListener {
 
         this.image_reader.setOnImageAvailableListener(this.image_reader_listener,
                 this.background_handler);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                button_sel_resolution.setText(size_image.getHeight()
+                        + "x" + size_image.getWidth());
+            }
+        });
+    }
 
+    private void restartCameraSession() {
+        this.reconfigCameraSession();
         this.createCameraPreviewSession();
 
         // this.info_display.setText("Here displays Information like framerate");
@@ -564,8 +542,6 @@ public class LiveStream extends Activity implements View.OnClickListener {
                 if (size_image_list.length > 0) {
                     int id_resolution = (int) spinner_resolutions.getSelectedItemId();
                     size_image = size_image_list[id_resolution];
-                    button_sel_resolution.setText(size_image.getHeight()
-                            + "x" + size_image.getWidth());
 
                     restartCameraSession();
                 }

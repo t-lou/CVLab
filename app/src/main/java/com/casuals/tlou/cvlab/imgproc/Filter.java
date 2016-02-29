@@ -116,8 +116,12 @@ public class Filter {
     }
 
     public void setDataFromYUV(byte[] data) {
-        this.lock.lock();
         this.allocation_input_yuv.copyFrom(data);
+        this.setDataFromYUVDirect();
+    }
+
+    public void setDataFromYUVDirect() {
+        this.lock.lock();
 
         this.script.set_context(this.allocation_input_yuv);
         this.script.forEach_yvu2rgb(this.allocation_context, this.allocations[this.index_allocation]);
@@ -133,10 +137,12 @@ public class Filter {
         this.script.set_width(this.width);
         this.script.set_height(this.height);
 
-        Type.Builder type_yuv = new Type.Builder(this.render_script, Element.U8(this.render_script))
+        /*Type.Builder type_yuv = new Type.Builder(this.render_script, Element.U8(this.render_script))
                 .setX(this.height).setY(this.width).setYuvFormat(ImageFormat.NV21);
         this.allocation_input_yuv = Allocation.createTyped(this.render_script,
-                type_yuv.create(), Allocation.USAGE_SCRIPT);
+                type_yuv.create(), Allocation.USAGE_IO_INPUT | Allocation.USAGE_SCRIPT);*/
+        this.allocation_input_yuv = Allocation.createSized(this.render_script, Element.I8(this.render_script),
+                this.height * this.width * 3 / 2, Allocation.USAGE_SCRIPT);
 
         Type.Builder type_rgba = new Type.Builder(this.render_script,
                 Element.RGBA_8888(this.render_script)).setX(this.width).setY(this.height);
@@ -148,6 +154,8 @@ public class Filter {
         }
         this.index_allocation = 0;
     }
+
+    public Allocation getInputAllocation() { return this.allocation_input_yuv; }
 
     public void setDataFromBitmap(Bitmap image) {
         int next_index = (this.index_allocation + 1) % this.num_allocation;
