@@ -1,4 +1,4 @@
-package com.casuals.tlou.cvlab.imgproc;
+package com.casuals.tlou.cvlab.gui;
 
 /*
  *
@@ -20,11 +20,11 @@ package com.casuals.tlou.cvlab.imgproc;
 
 import android.graphics.Bitmap;
 
-public class GallerieItem {
+public class GridViewItem {
     private Bitmap symbol;
     private String name;
 
-    public GallerieItem(Bitmap symbol, String name) {
+    public GridViewItem(Bitmap symbol, String name) {
         this.symbol = symbol;
         this.name = name;
     }

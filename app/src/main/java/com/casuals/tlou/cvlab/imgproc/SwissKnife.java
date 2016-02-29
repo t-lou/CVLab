@@ -23,6 +23,7 @@ import android.widget.LinearLayout;
 import android.widget.Spinner;
 
 import com.casuals.tlou.cvlab.R;
+import com.casuals.tlou.cvlab.gui.GridViewItem;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -81,7 +82,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 holder = (ImageView)row.getTag();
             }
 
-            GallerieItem item = (GallerieItem)data.get(position);
+            GridViewItem item = (GridViewItem)data.get(position);
             holder.setImageBitmap(item.getSymbol());
             return row;
         }
@@ -103,13 +104,13 @@ public class SwissKnife extends Activity implements View.OnClickListener {
     private JSONArray script_obj;
     private File script_file;
 
-    private ArrayList<GallerieItem> getToolItems() {
-        final ArrayList<GallerieItem> imageItems = new ArrayList<>();
+    private ArrayList<GridViewItem> getToolItems() {
+        final ArrayList<GridViewItem> imageItems = new ArrayList<>();
         if(this.filter != null) {
             for (String str : this.filter.getFilterNames()) {
                 int imageResource = getResources().getIdentifier("swissknife_tool_" + str, "drawable", getPackageName());
                 Bitmap icon = BitmapFactory.decodeResource(getResources(), imageResource);
-                imageItems.add(new GallerieItem(icon, str));
+                imageItems.add(new GridViewItem(icon, str));
             }
         }
 
@@ -142,7 +143,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
 
     private void selectTool(int i) {
         // get name of tool
-        GallerieItem item = (GallerieItem)gridview_tools.getItemAtPosition(i);
+        GridViewItem item = (GridViewItem)gridview_tools.getItemAtPosition(i);
         final String name = item.getName();
         // possible parameters for tools
         AlertDialog.Builder dialog_builder;
