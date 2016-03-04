@@ -352,3 +352,105 @@ uchar4 __attribute__((kernel)) threshold(uchar4 in) {
     }
     return value._uchar4;
 }
+
+uchar4 __attribute__((kernel)) sobol_operator_x(uchar4 in, uint32_t x, uint32_t y) {
+    union CONVERTOR value;
+    union CONVERTOR neighbor;
+    value._float = 0.0f;
+    if(x > 0 && x < width - 1 && y > 0 && y < height - 1) {
+        for(int i = -1; i < 2; i++) {
+            neighbor._uchar4 = rsGetElementAt_uchar4(context, x - 1, y + i);
+            value._float += neighbor._float * (float)(2 - abs(i));
+            neighbor._uchar4 = rsGetElementAt_uchar4(context, x + 1, y + i);
+            value._float -= neighbor._float * (float)(2 - abs(i));
+        }
+        value._float /= 4.0f;
+    }
+    return value._uchar4;
+}
+
+uchar4 __attribute__((kernel)) sobol_operator_y(uchar4 in, uint32_t x, uint32_t y) {
+    union CONVERTOR value;
+    union CONVERTOR neighbor;
+    value._float = 0.0f;
+    if(x > 0 && x < width - 1 && y > 0 && y < height - 1) {
+        for(int i = -1; i < 2; i++) {
+            neighbor._uchar4 = rsGetElementAt_uchar4(context, x + i, y - 1);
+            value._float += neighbor._float * (float)(2 - abs(i));
+            neighbor._uchar4 = rsGetElementAt_uchar4(context, x + i, y + 1);
+            value._float -= neighbor._float * (float)(2 - abs(i));
+        }
+        value._float /= 4.0f;
+    }
+    return value._uchar4;
+}
+
+uchar4 __attribute__((kernel)) magnitude(uchar4 in, uint32_t x, uint32_t y) {
+    union CONVERTOR value;
+    union CONVERTOR neighbor;
+    neighbor._uchar4 = rsGetElementAt_uchar4(context, x, y);
+    value._uchar4 = in;
+    value._float = sqrt(value._float * value._float + neighbor._float * neighbor._float);
+    return value._uchar4;
+}
+
+/*uchar4 __attribute__((kernel)) harris_detector(uchar4 in, uint32_t x, uint32_t y) {
+    union CONVERTOR value;
+    union CONVERTOR neighbor;
+    float moment_mat[3];
+    float diff_x = 0.0f, diff_y = 0.0f;
+    value._float = 0.0f;
+    if(x > 0 && x < width - 1 && y > 0 && y < height - 1) {
+        for(int i = -1; i < 2; i++) {
+            neighbor._uchar4 = rsGetElementAt_uchar4(context, x - 1, y + i);
+            diff_x += neighbor._float;
+            neighbor._uchar4 = rsGetElementAt_uchar4(context, x + 1, y + i);
+            diff_x -= neighbor._float;
+
+            neighbor._uchar4 = rsGetElementAt_uchar4(context, x + i, y - 1);
+            diff_y += neighbor._float;
+            neighbor._uchar4 = rsGetElementAt_uchar4(context, x + i, y + 1);
+            diff_y -= neighbor._float;
+        }
+        diff_x /= 3.0f;
+        diff_y /= 3.0f;
+
+        moment_mat[0] = diff_x * diff_x;
+        moment_mat[1] = diff_x * diff_y;
+        moment_mat[2] = diff_y * diff_y;
+
+        value._float = moment_mat[0] + moment_mat[2];
+        value._float = moment_mat[0] * moment_mat[2] - moment_mat[1] * moment_mat[1]
+            - scale * value._float * value._float;
+    }
+    return value._uchar4;
+}*/
+
+uchar4 __attribute__((kernel)) harris_detector(uchar4 in, uint32_t x, uint32_t y) {
+    union CONVERTOR value;
+    float moment_mat[3];
+    float diff_x = 0.0f, diff_y = 0.0f;
+    float tr = 0.0f, det = 0.0f;
+
+    value._uchar4 = in;
+    //diff_x = value._float > 0.0f ? value._float : -value._float;
+    diff_x = value._float;
+    value._uchar4 = rsGetElementAt_uchar4(context, x, y);
+    //diff_y = value._float > 0.0f ? value._float : -value._float;
+    diff_y = value._float;
+
+    if(x > 0 && x < width - 1 && y > 0 && y < height - 1) {
+        moment_mat[0] = diff_x * diff_x;
+        moment_mat[1] = diff_x * diff_y;
+        moment_mat[2] = diff_y * diff_y;
+        tr = moment_mat[0] + moment_mat[2];
+        det = moment_mat[0] * moment_mat[2] - moment_mat[1] * moment_mat[1];
+
+        value._float = det - scale * tr * tr;
+        if(value._float < 0.0f) value._float = -value._float;
+    }
+    else {
+        value._float = 0.0f;
+    }
+    return value._uchar4;
+}

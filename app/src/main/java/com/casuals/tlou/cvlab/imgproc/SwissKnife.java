@@ -627,6 +627,121 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 });
                 dialog = dialog_builder.create();
                 dialog.show();
+                break;
+            case "sobol":
+                content_dialog = new LinearLayout(this);
+                content_dialog.setOrientation(LinearLayout.VERTICAL);
+                edit_items = new EditText[1];
+
+                content_dialog.addView(spinner_channels);
+
+                edit_items[0] = new EditText(this);
+                edit_items[0].setHint("Direction(both, x or y)");
+                edit_items[0].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[0]);
+
+                dialog_builder = new AlertDialog.Builder(this);
+                dialog_builder.setTitle("Parameter for sobol filter");
+                dialog_builder.setCancelable(true);
+                dialog_builder.setView(content_dialog);
+
+                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        int id_channel = (int)spinner_channels.getSelectedItemId(), direction = 0;
+                        boolean if_input_correct = true;
+
+                        if(edit_items[0].getText().toString().length() > 0) {
+                            switch (edit_items[0].getText().toString().charAt(0)) {
+                                case 'x':
+                                case 'X':
+                                    direction = 1;
+                                    break;
+                                case 'y':
+                                case 'Y':
+                                    direction = 2;
+                                    break;
+                                case 'b':
+                                case 'B':
+                                    direction = 0;
+                                    break;
+                                default:
+                                    alert("Direction not recognized");
+                                    if_input_correct = false;
+                            }
+                        }
+                        if(if_input_correct) {
+                            filter.doSobol(id_channel, direction);
+                            filter.waitTillEnd();
+                            displayImage();
+
+                            JSONObject script_item_inner = new JSONObject();
+                            try {
+                                script_item_inner.put("name", name);
+                                script_item_inner.put("channel", id_channel);
+                                script_item_inner.put("direction", direction);
+                            } catch(JSONException e) {
+                                alert("Recording error");
+                            }
+                            finally {
+                                script_obj.put(script_item_inner);
+                            }
+                        }
+                    }
+                });
+                dialog = dialog_builder.create();
+                dialog.show();
+                break;
+            case "feature_detector_harris":
+                content_dialog = new LinearLayout(this);
+                content_dialog.setOrientation(LinearLayout.VERTICAL);
+                edit_items = new EditText[1];
+
+                content_dialog.addView(spinner_channels);
+
+                edit_items[0] = new EditText(this);
+                edit_items[0].setHint("Alpha, usually 0.04-0.06");
+                edit_items[0].setLayoutParams(layout_edittext);
+                content_dialog.addView(edit_items[0]);
+
+                dialog_builder = new AlertDialog.Builder(this);
+                dialog_builder.setTitle("Parameter for Harris detector");
+                dialog_builder.setCancelable(true);
+                dialog_builder.setView(content_dialog);
+
+                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        float alpha = 0.05f;
+                        boolean if_input_correct = true;
+
+                        if(edit_items[0].getText().toString().length() > 0) {
+                            try {
+                                alpha = Float.parseFloat(edit_items[0].getText().toString());
+                            } catch (NumberFormatException e) {
+                                alert("alpha not recognised");
+                                if_input_correct = false;
+                            }
+                        }
+                        if(if_input_correct) {
+                            filter.doHarrisDetect(alpha);
+                            filter.waitTillEnd();
+                            displayImage();
+
+                            JSONObject script_item_inner = new JSONObject();
+                            try {
+                                script_item_inner.put("name", name);
+                                script_item_inner.put("alpha", alpha);
+                            } catch(JSONException e) {
+                                alert("Recording error");
+                            }
+                            finally {
+                                script_obj.put(script_item_inner);
+                            }
+                        }
+                    }
+                });
+                dialog = dialog_builder.create();
+                dialog.show();
+                break;
             default:
                 break;
         }

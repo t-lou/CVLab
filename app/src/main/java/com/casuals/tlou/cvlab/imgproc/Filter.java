@@ -2,7 +2,6 @@ package com.casuals.tlou.cvlab.imgproc;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.ImageFormat;
 import android.media.ThumbnailUtils;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
@@ -50,7 +49,8 @@ public class Filter {
     }
 
     private String[] available_filters = {"rgb_to_bw", "rescale", "gaussian",
-            "laplacian", "gaussian_laplacian", "mean", "bilateral", "threshold"};
+            "laplacian", "gaussian_laplacian", "mean", "bilateral", "threshold",
+            "sobol", "feature_detector_harris"};
     //TODO UpPyramid may be useless, consider deleting the icon later
 
     private RenderScript render_script;
@@ -72,7 +72,7 @@ public class Filter {
     private FilterItem[] batch_items;
 
     public Filter(Context context) {
-        this(context, 2);
+        this(context, 5);
     }
 
     public Filter(Context context, int numAllocation) {
@@ -218,7 +218,7 @@ public class Filter {
         this.allocation_context.copyFrom(context);
     }
 
-    public void preprecess(int index) {
+    public void preprocess(int index) {
         if(index < 0 || index > 6) index = 0;
         // init
         if(this.id_channel < 0) {
@@ -248,7 +248,6 @@ public class Filter {
 
         this.script.forEach_rgb_to_bw(
                 this.allocations[this.index_allocation], this.allocations[next_index]);
-        this.script.forEach_copy(this.allocations[next_index], this.allocation_context);
         this.index_allocation = next_index;
 
         this.lock.unlock();
@@ -258,7 +257,7 @@ public class Filter {
         int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
 
-        this.preprecess(idChannel);
+        this.preprocess(idChannel);
 
         this.script.set_scale(scale);
         this.script.forEach_rescale(
@@ -300,13 +299,11 @@ public class Filter {
                 Element.F32(this.render_script), mask.length);
         allocation_mask.copyFrom(mask);
 
-        this.preprecess(idChannel);
+        this.preprocess(idChannel);
 
         this.script.set_scale(1.0f);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocations[this.index_allocation]);
-        //this.script.set_height(this.height);
-        //this.script.set_width(this.width);
         this.script.set_radius(radius);
         this.script.forEach_gaussian(
                 this.allocations[this.index_allocation], this.allocations[next_index]);
@@ -324,13 +321,11 @@ public class Filter {
                 Element.F32(this.render_script), mask.length);
         allocation_mask.copyFrom(mask);
 
-        this.preprecess(idChannel);
+        this.preprocess(idChannel);
 
         this.script.set_scale(scale);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocations[this.index_allocation]);
-        //this.script.set_height(this.height);
-        //this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(1);
         this.script.forEach_gaussian(
@@ -352,13 +347,11 @@ public class Filter {
                 Element.F32(this.render_script), mask.length);
         allocation_mask.copyFrom(mask);
 
-        this.preprecess(idChannel);
+        this.preprocess(idChannel);
 
         this.script.set_scale(1.0f);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocations[this.index_allocation]);
-        //this.script.set_height(this.height);
-        //this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
         this.script.forEach_gaussian(
@@ -372,11 +365,9 @@ public class Filter {
         int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
 
-        this.preprecess(idChannel);
+        this.preprocess(idChannel);
 
         this.script.set_context(this.allocations[this.index_allocation]);
-        //this.script.set_height(this.height);
-        //this.script.set_width(this.width);
         this.script.set_radius(radius);
         this.script.forEach_mean(
                 this.allocations[this.index_allocation], this.allocations[next_index]);
@@ -394,14 +385,12 @@ public class Filter {
                 Element.F32(this.render_script), mask.length);
         allocation_mask.copyFrom(mask);
 
-        this.preprecess(idChannel);
+        this.preprocess(idChannel);
 
         this.script.set_scale(1.0f);
         this.script.set_threshold_value(2.0f * sigma_range * sigma_range);
         this.script.set_mask(allocation_mask);
         this.script.set_context(this.allocations[this.index_allocation]);
-        //this.script.set_height(this.height);
-        //this.script.set_width(this.width);
         this.script.set_index_channel(idChannel);
         this.script.set_radius(radius);
         this.script.forEach_bilateral(
@@ -415,7 +404,7 @@ public class Filter {
         int next_index = (this.index_allocation + 1) % this.num_allocation;
         this.lock.lock();
 
-        this.preprecess(idChannel);
+        this.preprocess(idChannel);
 
         this.script.set_threshold_value(thresholdValue);
         this.script.set_index_channel(idChannel);
@@ -423,6 +412,69 @@ public class Filter {
                 this.allocations[this.index_allocation], this.allocations[next_index]);
         this.index_allocation = next_index;
 
+        this.id_channel = 0;
+
+        this.lock.unlock();
+    }
+
+    public void doSobol(int idChannel, int direction) {
+        int next_index = (this.index_allocation + 1) % this.num_allocation;
+        this.lock.lock();
+
+        this.preprocess(idChannel);
+
+        this.script.set_index_channel(idChannel);
+        this.script.set_context(this.allocations[this.index_allocation]);
+        switch (direction) {
+            // in x direction
+            case 1:
+                this.script.forEach_sobol_operator_x(
+                        this.allocations[this.index_allocation], this.allocations[next_index]);
+                break;
+            // in y direction
+            case 2:
+                this.script.forEach_sobol_operator_y(
+                        this.allocations[this.index_allocation], this.allocations[next_index]);
+                break;
+            // in both
+            default:
+                int diff_x = (this.index_allocation + 2) % this.num_allocation;
+                int diff_y = (this.index_allocation + 3) % this.num_allocation;
+                this.script.forEach_sobol_operator_x(
+                        this.allocations[this.index_allocation], this.allocations[diff_x]);
+                this.script.forEach_sobol_operator_y(
+                        this.allocations[this.index_allocation], this.allocations[diff_y]);
+                this.script.set_context(this.allocations[diff_y]);
+                this.script.forEach_magnitude(this.allocations[diff_x], this.allocations[next_index]);
+        }
+
+        this.index_allocation = next_index;
+        this.id_channel = 0;
+
+        this.lock.unlock();
+    }
+
+    public void doHarrisDetect(float alpha) {
+        int next_index = (this.index_allocation + 1) % this.num_allocation;
+        int index_diff_x = (this.index_allocation + 2) % this.num_allocation;
+        int index_diff_y = (this.index_allocation + 3) % this.num_allocation;
+        this.lock.lock();
+
+        this.preprocess(this.id_channel);
+
+        this.script.set_scale(alpha);
+        this.script.set_context(this.allocations[this.index_allocation]);
+
+        this.script.forEach_sobol_operator_x(
+                this.allocations[this.index_allocation], this.allocations[index_diff_x]);
+        this.script.forEach_sobol_operator_y(
+                this.allocations[this.index_allocation], this.allocations[index_diff_y]);
+
+        // do smoothing later
+        this.script.set_context(this.allocations[index_diff_y]);
+        this.script.forEach_harris_detector(this.allocations[index_diff_x], this.allocations[next_index]);
+
+        this.index_allocation = next_index;
         this.id_channel = 0;
 
         this.lock.unlock();
@@ -537,7 +589,7 @@ public class Filter {
                 name = json_obj.optString("name");
                 switch (name) {
                     case "rgb_to_bw":
-                    case "up_pyramid":
+                    // case "up_pyramid":
                         this.batch_items[i] = new FilterItem(name, 0, 0);
                         break;
                     case "rescale":
@@ -567,6 +619,7 @@ public class Filter {
                         this.batch_items[i] = new FilterItem(name, 2, 0);
                         this.batch_items[i].int_params[0] = json_obj.getInt("channel");
                         this.batch_items[i].int_params[1] = json_obj.getInt("radius");
+                        break;
                     case "bilateral":
                         this.batch_items[i] = new FilterItem(name, 2, 2);
                         this.batch_items[i].int_params[0] = json_obj.getInt("channel");
@@ -578,6 +631,15 @@ public class Filter {
                         this.batch_items[i] = new FilterItem(name, 1, 1);
                         this.batch_items[i].int_params[0] = json_obj.getInt("channel");
                         this.batch_items[i].float_params[0] = (float)json_obj.getDouble("threshold");
+                        break;
+                    case "sobol":
+                        this.batch_items[i] = new FilterItem(name, 2, 0);
+                        this.batch_items[i].int_params[0] = json_obj.getInt("channel");
+                        this.batch_items[i].int_params[1] = json_obj.getInt("direction");
+                        break;
+                    case "feature_detector_harris":
+                        this.batch_items[i] = new FilterItem(name, 0, 1);
+                        this.batch_items[i].float_params[0] = (float)json_obj.getDouble("alpha");
                         break;
                     default:
                         this.batch_items[i] = new FilterItem("idle", 1, 1);
@@ -624,6 +686,12 @@ public class Filter {
                         break;
                     case "threshold":
                         this.doThreshold(item.int_params[0], item.float_params[0]);
+                        break;
+                    case "sobol":
+                        this.doSobol(item.int_params[0], item.int_params[1]);
+                        break;
+                    case "feature_detector_harris":
+                        this.doHarrisDetect(item.float_params[0]);
                         break;
                     default:
                         break;
