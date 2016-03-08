@@ -19,10 +19,9 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.Spinner;
 
 import com.casuals.tlou.cvlab.R;
+import com.casuals.tlou.cvlab.gui.BasicDialog;
 import com.casuals.tlou.cvlab.gui.GridViewItem;
 
 import org.json.JSONArray;
@@ -146,20 +145,9 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         GridViewItem item = (GridViewItem)gridview_tools.getItemAtPosition(i);
         final String name = item.getName();
         // possible parameters for tools
-        AlertDialog.Builder dialog_builder;
-        AlertDialog dialog;
-        LinearLayout.LayoutParams layout_edittext = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        LinearLayout content_dialog;
-        final EditText[] edit_items;
-
-        String[] item_channels = {"Gray scale", "Red", "Green", "Blue", "Hue", "Saturation", "Value"};
-        ArrayAdapter<String> adapter_channels = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, item_channels);
-        final Spinner spinner_channels = new Spinner(this);
-        spinner_channels.setAdapter(adapter_channels);
-        spinner_channels.setLayoutParams(layout_edittext);
+        final BasicDialog dialog_for_parameters = new BasicDialog(this);
+        dialog_for_parameters.addDropdownSelector(new String[] {
+                "Gray scale", "Red", "Green", "Blue", "Hue", "Saturation", "Value"});
 
         final JSONObject script_item;
 
@@ -173,574 +161,312 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 try {
                     script_item.put("name", name);
                 } catch(JSONException e) {
-                    this.alert("Recording error");
+                    new BasicDialog(this, "Recording error");
                 }
                 finally {
                     this.script_obj.put(script_item);
                 }
                 break;
             case "rescale":
-                content_dialog = new LinearLayout(this);
-                content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[1];
+                dialog_for_parameters.setTitle("Parameter for rescaling");
+                dialog_for_parameters.addTextEditor("Scaling factor, default 1.0");
 
-                content_dialog.addView(spinner_channels);
-
-                edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Scaling factor");
-                edit_items[0].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[0]);
-
-                dialog_builder = new AlertDialog.Builder(this);
-                dialog_builder.setTitle("Parameter for rescaling");
-                dialog_builder.setCancelable(true);
-                dialog_builder.setView(content_dialog);
-
-                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                dialog_for_parameters.getDialogBuilder().setPositiveButton("Do it",
+                        new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
+                        int id_channel = (Integer)dialog_for_parameters.getInputValue(0);
+                        Float scaling_factor_obj = (Float)dialog_for_parameters.getInputValue(1);
                         float scaling_factor = 1.0f;
-                        int id_channel = (int)spinner_channels.getSelectedItemId();
-                        boolean if_input_correct = true;
 
-                        if(edit_items[0].getText().toString().length() > 0) {
-                            try {
-                                scaling_factor = Float.parseFloat(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("scaling factor not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(if_input_correct) {
-                            filter.doRescale(scaling_factor, id_channel);
-                            filter.waitTillEnd();
-                            displayImage();
+                        if (scaling_factor_obj != null) scaling_factor = scaling_factor_obj;
 
-                            JSONObject script_item_inner = new JSONObject();
-                            try {
-                                script_item_inner.put("name", name);
-                                script_item_inner.put("channel", id_channel);
-                                script_item_inner.put("scaling_factor", scaling_factor);
-                            } catch(JSONException e) {
-                                alert("Recording error");
-                            }
-                            finally {
-                                script_obj.put(script_item_inner);
-                            }
+                        filter.doRescale(scaling_factor, id_channel);
+                        filter.waitTillEnd();
+                        displayImage();
+
+                        JSONObject script_item_inner = new JSONObject();
+                        try {
+                            script_item_inner.put("name", name);
+                            script_item_inner.put("channel", id_channel);
+                            script_item_inner.put("scaling_factor", scaling_factor);
+                        } catch (JSONException e) {
+                            new BasicDialog(SwissKnife.this, "Recording error");
+                        } finally {
+                            script_obj.put(script_item_inner);
                         }
                     }
                 });
-                dialog = dialog_builder.create();
-                dialog.show();
+                dialog_for_parameters.finish();
                 break;
-            /*case "up_pyramid":
-                this.filter.doUpPyramid();
-                this.filter.waitTillEnd();
-                this.image = ThumbnailUtils.extractThumbnail(this.image,
-                        this.image.getWidth() / 2, this.image.getHeight() / 2);
-                this.displayImage();
-
-                script_item = new JSONObject();
-                try {
-                    script_item.put("name", name);
-                } catch(JSONException e) { }
-                finally {
-                    this.script_obj.put(script_item);
-                }
-                break;*/
             case "gaussian":
-                content_dialog = new LinearLayout(this);
-                content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[2];
+                dialog_for_parameters.setTitle("Parameter for Gaussian filter");
+                dialog_for_parameters.addTextEditor("Radius of filter, default 2");
+                dialog_for_parameters.addTextEditor("Sigma, default 1.0");
 
-                content_dialog.addView(spinner_channels);
+                dialog_for_parameters.getDialogBuilder().setPositiveButton("Do it",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                int radius = 2;
+                                float sigma = 1.0f;
+                                int id_channel = (Integer)dialog_for_parameters.getInputValue(0);
+                                Float radius_obj = (Float)dialog_for_parameters.getInputValue(1);
+                                Float sigma_obj = (Float)dialog_for_parameters.getInputValue(2);
 
-                edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Radius of filter");
-                edit_items[0].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[0]);
-                edit_items[1] = new EditText(this);
-                edit_items[1].setHint("Sigma");
-                edit_items[1].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[1]);
+                                if(radius_obj != null) radius = Math.round(radius_obj);
+                                if(sigma_obj != null) sigma = sigma_obj;
 
-                dialog_builder = new AlertDialog.Builder(this);
-                dialog_builder.setTitle("Parameter for Gaussian filter");
-                dialog_builder.setCancelable(true);
-                dialog_builder.setView(content_dialog);
+                                filter.doGaussian(radius, id_channel, sigma);
+                                filter.waitTillEnd();
+                                displayImage();
 
-                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        int radius = 2, id_channel = (int)spinner_channels.getSelectedItemId();
-                        float sigma = 1.0f;
-                        boolean if_input_correct = true;
-                        if(edit_items[0].getText().toString().length() > 0) {
-                            try {
-                                radius = Integer.parseInt(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("radius not recognised");
-                                if_input_correct = false;
+                                JSONObject script_item_inner = new JSONObject();
+                                try {
+                                    script_item_inner.put("name", name);
+                                    script_item_inner.put("channel", id_channel);
+                                    script_item_inner.put("radius", radius);
+                                    script_item_inner.put("sigma", sigma);
+                                } catch (JSONException e) {
+                                    new BasicDialog(SwissKnife.this, "Recording error");
+                                } finally {
+                                    script_obj.put(script_item_inner);
+                                }
                             }
-                        }
-                        if(edit_items[1].getText().toString().length() > 0) {
-                            try {
-                                sigma = Float.parseFloat(edit_items[1].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("sigma not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(if_input_correct) {
-                            filter.doGaussian(radius, id_channel, sigma);
-                            filter.waitTillEnd();
-                            displayImage();
-
-                            JSONObject script_item_inner = new JSONObject();
-                            try {
-                                script_item_inner.put("name", name);
-                                script_item_inner.put("channel", id_channel);
-                                script_item_inner.put("radius", radius);
-                                script_item_inner.put("sigma", sigma);
-                            } catch(JSONException e) {
-                                alert("Recording error");
-                            }
-                            finally {
-                                script_obj.put(script_item_inner);
-                            }
-                        }
-                    }
-                });
-                dialog = dialog_builder.create();
-                dialog.show();
+                        });
+                dialog_for_parameters.finish();
                 break;
             case "laplacian":
-                content_dialog = new LinearLayout(this);
-                content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[1];
+                dialog_for_parameters.setTitle("Parameter for Laplacian filter");
+                dialog_for_parameters.addTextEditor("Scaling factor, default 1.0");
 
-                content_dialog.addView(spinner_channels);
+                dialog_for_parameters.getDialogBuilder().setPositiveButton("Do it",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                int id_channel = (Integer) dialog_for_parameters.getInputValue(0);
+                                Float scaling_factor_obj = (Float) dialog_for_parameters.getInputValue(1);
+                                float scaling_factor = 1.0f;
 
-                edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Scaling factor");
-                edit_items[0].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[0]);
+                                if(scaling_factor_obj != null) scaling_factor = scaling_factor_obj;
 
-                dialog_builder = new AlertDialog.Builder(this);
-                dialog_builder.setTitle("Parameter for Laplacian filter");
-                dialog_builder.setCancelable(true);
-                dialog_builder.setView(content_dialog);
+                                filter.doLaplacian(id_channel, scaling_factor);
+                                filter.waitTillEnd();
+                                displayImage();
 
-                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = (int)spinner_channels.getSelectedItemId();
-                        float scaling_factor = 1.0f;
-                        boolean if_input_correct = true;
-
-                        if(edit_items[0].getText().toString().length() > 0) {
-                            try {
-                                scaling_factor = Integer.parseInt(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("scaling factor not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(if_input_correct) {
-                            filter.doLaplacian(id_channel, scaling_factor);
-                            filter.waitTillEnd();
-                            displayImage();
-
-                            JSONObject script_item_inner = new JSONObject();
-                            try {
-                                script_item_inner.put("name", name);
-                                script_item_inner.put("channel", id_channel);
-                                script_item_inner.put("scaling_factor", scaling_factor);
-                            } catch(JSONException e) {
-                                alert("Recording error");
-                            }
-                            finally {
-                                script_obj.put(script_item_inner);
-                            }
+                                JSONObject script_item_inner = new JSONObject();
+                                try {
+                                    script_item_inner.put("name", name);
+                                    script_item_inner.put("channel", id_channel);
+                                    script_item_inner.put("scaling_factor", scaling_factor);
+                                } catch (JSONException e) {
+                                    new BasicDialog(SwissKnife.this, "Recording error");
+                                } finally {
+                                    script_obj.put(script_item_inner);
                         }
                     }
                 });
-                dialog = dialog_builder.create();
-                dialog.show();
+                dialog_for_parameters.finish();
                 break;
             case "gaussian_laplacian":
-                content_dialog = new LinearLayout(this);
-                content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[3];
+                dialog_for_parameters.setTitle("Parameter for Gaussian-Laplacian filter");
+                dialog_for_parameters.addTextEditor("Radius, default 2");
+                dialog_for_parameters.addTextEditor("Sigma, default 1.0");
+                dialog_for_parameters.addTextEditor("Scaling factor, default 1.0");
 
-                content_dialog.addView(spinner_channels);
-
-                edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Radius");
-                edit_items[0].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[0]);
-                edit_items[1] = new EditText(this);
-                edit_items[1].setHint("Sigma");
-                edit_items[1].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[1]);
-                edit_items[2] = new EditText(this);
-                edit_items[2].setHint("Scaling factor");
-                edit_items[2].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[2]);
-
-                dialog_builder = new AlertDialog.Builder(this);
-                dialog_builder.setTitle("Parameter for Gaussian-Laplacian filter");
-                dialog_builder.setCancelable(true);
-                dialog_builder.setView(content_dialog);
-
-                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                dialog_for_parameters.getDialogBuilder().setPositiveButton("Do it",
+                        new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = (int)spinner_channels.getSelectedItemId(), radius = 2;
+                        int radius = 2;
                         float sigma_gaussian = 1.0f, scaling_factor = 1.0f;
-                        boolean if_input_correct = true;
+                        int id_channel = (Integer)dialog_for_parameters.getInputValue(0);
+                        Float radius_obj = (Float)dialog_for_parameters.getInputValue(1);
+                        Float sigma_gaussian_obj = (Float)dialog_for_parameters.getInputValue(2);
+                        Float scaling_factor_obj = (Float)dialog_for_parameters.getInputValue(3);
 
-                        if(edit_items[0].getText().toString().length() > 0) {
-                            try {
-                                radius = Integer.parseInt(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("radius not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(edit_items[1].getText().toString().length() > 0) {
-                            try {
-                                sigma_gaussian = Float.parseFloat(edit_items[1].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("sigma not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(edit_items[2].getText().toString().length() > 0) {
-                            try {
-                                scaling_factor = Float.parseFloat(edit_items[2].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("scaling factor not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(if_input_correct) {
-                            filter.doGaussianLaplacian(radius, id_channel, sigma_gaussian, scaling_factor);
-                            filter.waitTillEnd();
-                            displayImage();
+                        if(radius_obj != null) radius = Math.round(radius_obj);
+                        if(sigma_gaussian_obj != null) sigma_gaussian = sigma_gaussian_obj;
+                        if(scaling_factor_obj != null) scaling_factor = scaling_factor_obj;
 
-                            JSONObject script_item_inner = new JSONObject();
-                            try {
-                                script_item_inner.put("name", name);
-                                script_item_inner.put("channel", id_channel);
-                                script_item_inner.put("radius", radius);
-                                script_item_inner.put("sigma", sigma_gaussian);
-                                script_item_inner.put("scaling_factor", scaling_factor);
-                            } catch(JSONException e) {
-                                alert("Recording error");
-                            }
-                            finally {
-                                script_obj.put(script_item_inner);
-                            }
+                        filter.doGaussianLaplacian(radius, id_channel, sigma_gaussian, scaling_factor);
+                        filter.waitTillEnd();
+                        displayImage();
+
+                        JSONObject script_item_inner = new JSONObject();
+                        try {
+                            script_item_inner.put("name", name);
+                            script_item_inner.put("channel", id_channel);
+                            script_item_inner.put("radius", radius);
+                            script_item_inner.put("sigma", sigma_gaussian);
+                            script_item_inner.put("scaling_factor", scaling_factor);
+                        } catch(JSONException e) {
+                            new BasicDialog(SwissKnife.this, "Recording error");
+                        }
+                        finally {
+                            script_obj.put(script_item_inner);
                         }
                     }
                 });
-                dialog = dialog_builder.create();
-                dialog.show();
+                dialog_for_parameters.finish();
                 break;
             case "bilateral":
-                content_dialog = new LinearLayout(this);
-                content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[3];
+                dialog_for_parameters.setTitle("Parameter for bilateral filter");
+                dialog_for_parameters.addTextEditor("Radius, default 3");
+                dialog_for_parameters.addTextEditor("Sigma for spatial filter, default 1.0");
+                dialog_for_parameters.addTextEditor("Sigma for range filter, default 1.0");
 
-                content_dialog.addView(spinner_channels);
-
-                edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Radius");
-                edit_items[0].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[0]);
-                edit_items[1] = new EditText(this);
-                edit_items[1].setHint("Sigma for spatial filter");
-                edit_items[1].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[1]);
-                edit_items[2] = new EditText(this);
-                edit_items[2].setHint("Sigma for range filter");
-                edit_items[2].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[2]);
-
-                dialog_builder = new AlertDialog.Builder(this);
-                dialog_builder.setTitle("Parameter for bilateral filter");
-                dialog_builder.setCancelable(true);
-                dialog_builder.setView(content_dialog);
-
-                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                dialog_for_parameters.getDialogBuilder().setPositiveButton("Do it",
+                        new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = (int)spinner_channels.getSelectedItemId(), radius = 2;
+                        int radius = 2;
                         float sigma_spatial = 1.0f, sigma_range = 1.0f;
-                        boolean if_input_correct = true;
+                        int id_channel = (Integer)dialog_for_parameters.getInputValue(0);
+                        Float radius_obj = (Float)dialog_for_parameters.getInputValue(1);
+                        Float sigma_spatial_obj = (Float)dialog_for_parameters.getInputValue(2);
+                        Float sigma_range_obj = (Float)dialog_for_parameters.getInputValue(3);
 
-                        if(edit_items[0].getText().toString().length() > 0) {
-                            try {
-                                radius = Integer.parseInt(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("radius not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(edit_items[1].getText().toString().length() > 0) {
-                            try {
-                                sigma_spatial = Float.parseFloat(edit_items[1].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("sigma for range filter not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(edit_items[2].getText().toString().length() > 0) {
-                            try {
-                                sigma_range = Float.parseFloat(edit_items[2].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("sigma for range filter not recognised");
-                                if_input_correct = false;
-                            }
-                        }
-                        if(if_input_correct) {
-                            filter.doBilateral(radius, id_channel, sigma_spatial, sigma_range);
-                            filter.waitTillEnd();
-                            displayImage();
+                        if(radius_obj != null) radius = Math.round(radius_obj);
+                        if(sigma_spatial_obj != null) sigma_spatial = sigma_spatial_obj;
+                        if(sigma_range_obj != null) sigma_range = sigma_range_obj;
 
-                            JSONObject script_item_inner = new JSONObject();
-                            try {
-                                script_item_inner.put("name", name);
-                                script_item_inner.put("channel", id_channel);
-                                script_item_inner.put("radius", radius);
-                                script_item_inner.put("sigma_range", sigma_range);
-                                script_item_inner.put("sigma_spatial", sigma_spatial);
-                            } catch(JSONException e) {
-                                alert("Recording error");
-                            }
-                            finally {
-                                script_obj.put(script_item_inner);
-                            }
+                        filter.doBilateral(radius, id_channel, sigma_spatial, sigma_range);
+                        filter.waitTillEnd();
+                        displayImage();
+
+                        JSONObject script_item_inner = new JSONObject();
+                        try {
+                            script_item_inner.put("name", name);
+                            script_item_inner.put("channel", id_channel);
+                            script_item_inner.put("radius", radius);
+                            script_item_inner.put("sigma_range", sigma_range);
+                            script_item_inner.put("sigma_spatial", sigma_spatial);
+                        } catch(JSONException e) {
+                            new BasicDialog(SwissKnife.this, "Recording error");
+                        }
+                        finally {
+                            script_obj.put(script_item_inner);
                         }
                     }
                 });
-                dialog = dialog_builder.create();
-                dialog.show();
+                dialog_for_parameters.finish();
                 break;
             case "mean":
-                content_dialog = new LinearLayout(this);
-                content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[1];
+                dialog_for_parameters.setTitle("Parameter for mean filter");
+                dialog_for_parameters.addTextEditor("Radius, default 2");
 
-                content_dialog.addView(spinner_channels);
-
-                edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Radius");
-                edit_items[0].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[0]);
-
-                dialog_builder = new AlertDialog.Builder(this);
-                dialog_builder.setTitle("Parameter for mean filter");
-                dialog_builder.setCancelable(true);
-                dialog_builder.setView(content_dialog);
-
-                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                dialog_for_parameters.getDialogBuilder().setPositiveButton("Do it",
+                        new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = (int)spinner_channels.getSelectedItemId(), radius = 2;
-                        boolean if_input_correct = true;
+                        int radius = 2;
+                        int id_channel = (Integer)dialog_for_parameters.getInputValue(0);
+                        Float radius_obj = (Float)dialog_for_parameters.getInputValue(1);
 
-                        if(edit_items[0].getText().toString().length() > 0) {
-                            try {
-                                radius = Integer.parseInt(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("radius not recognised");
-                                if_input_correct = false;
-                            }
+                        if(radius_obj != null) radius = Math.round(radius_obj);
+
+                        filter.doMean(radius, id_channel);
+                        filter.waitTillEnd();
+                        displayImage();
+
+                        JSONObject script_item_inner = new JSONObject();
+                        try {
+                            script_item_inner.put("name", name);
+                            script_item_inner.put("channel", id_channel);
+                            script_item_inner.put("radius", radius);
+                        } catch(JSONException e) {
+                            new BasicDialog(SwissKnife.this, "Recording error");
                         }
-                        if(if_input_correct) {
-                            filter.doMean(radius, id_channel);
-                            filter.waitTillEnd();
-                            displayImage();
-
-                            JSONObject script_item_inner = new JSONObject();
-                            try {
-                                script_item_inner.put("name", name);
-                                script_item_inner.put("channel", id_channel);
-                                script_item_inner.put("radius", radius);
-                            } catch(JSONException e) {
-                                alert("Recording error");
-                            }
-                            finally {
-                                script_obj.put(script_item_inner);
-                            }
+                        finally {
+                            script_obj.put(script_item_inner);
                         }
                     }
                 });
-                dialog = dialog_builder.create();
-                dialog.show();
+                dialog_for_parameters.finish();
                 break;
             case "threshold":
-                content_dialog = new LinearLayout(this);
-                content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[1];
+                dialog_for_parameters.setTitle("Parameter for thresholding");
+                dialog_for_parameters.addTextEditor("Threshold, default 0.5");
 
-                content_dialog.addView(spinner_channels);
-
-                edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Threshold");
-                edit_items[0].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[0]);
-
-                dialog_builder = new AlertDialog.Builder(this);
-                dialog_builder.setTitle("Parameter for thresholding");
-                dialog_builder.setCancelable(true);
-                dialog_builder.setView(content_dialog);
-
-                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
+                dialog_for_parameters.getDialogBuilder().setPositiveButton("Do it",
+                        new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = (int)spinner_channels.getSelectedItemId();
                         float threshold = 0.5f;
-                        boolean if_input_correct = true;
+                        int id_channel = (Integer)dialog_for_parameters.getInputValue(0);
+                        Float threshold_obj = (Float)dialog_for_parameters.getInputValue(1);
 
-                        if(edit_items[0].getText().toString().length() > 0) {
-                            try {
-                                threshold = Float.parseFloat(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("threshold not recognised");
-                                if_input_correct = false;
-                            }
+                        if(threshold_obj != null) threshold = threshold_obj;
+
+                        filter.doThreshold(id_channel, threshold);
+                        filter.waitTillEnd();
+                        displayImage();
+
+                        JSONObject script_item_inner = new JSONObject();
+                        try {
+                            script_item_inner.put("name", name);
+                            script_item_inner.put("channel", id_channel);
+                            script_item_inner.put("threshold", threshold);
+                        } catch(JSONException e) {
+                            new BasicDialog(SwissKnife.this, "Recording error");
                         }
-                        if(if_input_correct) {
-                            filter.doThreshold(id_channel, threshold);
-                            filter.waitTillEnd();
-                            displayImage();
-
-                            JSONObject script_item_inner = new JSONObject();
-                            try {
-                                script_item_inner.put("name", name);
-                                script_item_inner.put("channel", id_channel);
-                                script_item_inner.put("threshold", threshold);
-                            } catch(JSONException e) {
-                                alert("Recording error");
-                            }
-                            finally {
-                                script_obj.put(script_item_inner);
-                            }
+                        finally {
+                            script_obj.put(script_item_inner);
                         }
                     }
                 });
-                dialog = dialog_builder.create();
-                dialog.show();
+                dialog_for_parameters.finish();
                 break;
             case "sobol":
-                content_dialog = new LinearLayout(this);
-                content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[1];
+                dialog_for_parameters.setTitle("Parameter for sobol filter");
+                dialog_for_parameters.addDropdownSelector(new String[]{"both", "x", "y"});
 
-                content_dialog.addView(spinner_channels);
+                dialog_for_parameters.getDialogBuilder().setPositiveButton("Do it",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                int id_channel = (Integer) dialog_for_parameters.getInputValue(0);
+                                int direction = (Integer) dialog_for_parameters.getInputValue(1);
 
-                edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Direction(both, x or y)");
-                edit_items[0].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[0]);
+                                filter.doSobol(id_channel, direction);
+                                filter.waitTillEnd();
+                                displayImage();
 
-                dialog_builder = new AlertDialog.Builder(this);
-                dialog_builder.setTitle("Parameter for sobol filter");
-                dialog_builder.setCancelable(true);
-                dialog_builder.setView(content_dialog);
-
-                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        int id_channel = (int)spinner_channels.getSelectedItemId(), direction = 0;
-                        boolean if_input_correct = true;
-
-                        if(edit_items[0].getText().toString().length() > 0) {
-                            switch (edit_items[0].getText().toString().charAt(0)) {
-                                case 'x':
-                                case 'X':
-                                    direction = 1;
-                                    break;
-                                case 'y':
-                                case 'Y':
-                                    direction = 2;
-                                    break;
-                                case 'b':
-                                case 'B':
-                                    direction = 0;
-                                    break;
-                                default:
-                                    alert("Direction not recognized");
-                                    if_input_correct = false;
+                                JSONObject script_item_inner = new JSONObject();
+                                try {
+                                    script_item_inner.put("name", name);
+                                    script_item_inner.put("channel", id_channel);
+                                    script_item_inner.put("direction", direction);
+                                } catch (JSONException e) {
+                                    new BasicDialog(SwissKnife.this, "Recording error");
+                                } finally {
+                                    script_obj.put(script_item_inner);
+                                }
                             }
-                        }
-                        if(if_input_correct) {
-                            filter.doSobol(id_channel, direction);
-                            filter.waitTillEnd();
-                            displayImage();
-
-                            JSONObject script_item_inner = new JSONObject();
-                            try {
-                                script_item_inner.put("name", name);
-                                script_item_inner.put("channel", id_channel);
-                                script_item_inner.put("direction", direction);
-                            } catch(JSONException e) {
-                                alert("Recording error");
-                            }
-                            finally {
-                                script_obj.put(script_item_inner);
-                            }
-                        }
-                    }
-                });
-                dialog = dialog_builder.create();
-                dialog.show();
+                        });
+                dialog_for_parameters.finish();
                 break;
             case "feature_detector_harris":
-                content_dialog = new LinearLayout(this);
-                content_dialog.setOrientation(LinearLayout.VERTICAL);
-                edit_items = new EditText[1];
+                dialog_for_parameters.setTitle("Parameter for Harris detector");
+                dialog_for_parameters.addTextEditor("Alpha, usually 0.04-0.06, default 0.05");
 
-                content_dialog.addView(spinner_channels);
+                dialog_for_parameters.getDialogBuilder().setPositiveButton("Do it",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                float alpha = 0.05f;
+                                Float alpha_obj = (Float) dialog_for_parameters.getInputValue(1);
 
-                edit_items[0] = new EditText(this);
-                edit_items[0].setHint("Alpha, usually 0.04-0.06");
-                edit_items[0].setLayoutParams(layout_edittext);
-                content_dialog.addView(edit_items[0]);
+                                if (alpha_obj != null) alpha = alpha_obj;
 
-                dialog_builder = new AlertDialog.Builder(this);
-                dialog_builder.setTitle("Parameter for Harris detector");
-                dialog_builder.setCancelable(true);
-                dialog_builder.setView(content_dialog);
+                                filter.doHarrisDetect(alpha);
+                                filter.waitTillEnd();
+                                displayImage();
 
-                dialog_builder.setPositiveButton("Do it", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        float alpha = 0.05f;
-                        boolean if_input_correct = true;
-
-                        if(edit_items[0].getText().toString().length() > 0) {
-                            try {
-                                alpha = Float.parseFloat(edit_items[0].getText().toString());
-                            } catch (NumberFormatException e) {
-                                alert("alpha not recognised");
-                                if_input_correct = false;
+                                JSONObject script_item_inner = new JSONObject();
+                                try {
+                                    script_item_inner.put("name", name);
+                                    script_item_inner.put("alpha", alpha);
+                                } catch (JSONException e) {
+                                    new BasicDialog(SwissKnife.this, "Recording error");
+                                } finally {
+                                    script_obj.put(script_item_inner);
+                                }
                             }
-                        }
-                        if(if_input_correct) {
-                            filter.doHarrisDetect(alpha);
-                            filter.waitTillEnd();
-                            displayImage();
-
-                            JSONObject script_item_inner = new JSONObject();
-                            try {
-                                script_item_inner.put("name", name);
-                                script_item_inner.put("alpha", alpha);
-                            } catch(JSONException e) {
-                                alert("Recording error");
-                            }
-                            finally {
-                                script_obj.put(script_item_inner);
-                            }
-                        }
-                    }
-                });
-                dialog = dialog_builder.create();
-                dialog.show();
+                        });
+                dialog_for_parameters.finish();
                 break;
             default:
                 break;
@@ -761,9 +487,9 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             writer.close();
             output_stream.close();
         } catch(FileNotFoundException e) {
-            this.alert("File cannot write");
+            new BasicDialog(this, "File cannot write");
         } catch (IOException e) {
-            this.alert("Writing error");
+            new BasicDialog(this, "Writing error");
         }
     }
 
@@ -776,25 +502,16 @@ public class SwissKnife extends Activity implements View.OnClickListener {
             output = new FileOutputStream(file);
             image.compress(Bitmap.CompressFormat.PNG, 100, output);
         } catch (Exception e) {
-            this.alert("Image file not created");
+            new BasicDialog(this, "Image file not created");
         } finally {
             try {
                 output.close();
             } catch (IOException e) {
-                this.alert("Saving image failed(IOException)");
+                new BasicDialog(this, "Saving image failed(IOException)");
             } catch(NullPointerException e) {
-                this.alert("Saving image failed(NullPointerException)");
+                new BasicDialog(this, "Saving image failed(NullPointerException)");
             }
         }
-    }
-
-    private void alert(String message) {
-        AlertDialog.Builder alert;
-
-        alert = new AlertDialog.Builder(this);
-        alert.setMessage(message)
-                .setCancelable(true);
-        alert.show();
     }
 
     private void openImage(File file) {
@@ -821,12 +538,12 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                     filter.resetData();
                     image = BitmapFactory.decodeFile(file_copy.getAbsolutePath());
                     filter.setData(image);
-                    alert("Original image opened");
+                    new BasicDialog(SwissKnife.this, "Original image opened");
                 }
             });
             builder.setPositiveButton("Okay", new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int id) {
-                    alert("Schinked image opened");
+                    new BasicDialog(SwissKnife.this, "Schinked image opened");
                 }
             });
             AlertDialog dialog = builder.create();
@@ -884,7 +601,7 @@ public class SwissKnife extends Activity implements View.OnClickListener {
         }
         else {
             this.file_origin = null;
-            this.alert("No file passed");
+            new BasicDialog(this, "No file passed");
         }
         // open scaled image
         this.openImage(this.file_origin);
@@ -926,48 +643,34 @@ public class SwissKnife extends Activity implements View.OnClickListener {
                 break;
 
             case R.id.button_swissknife_save:
-                AlertDialog dialog_filename;
-                LinearLayout.LayoutParams layout_edittext = new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT);
-                LinearLayout content_dialog = new LinearLayout(this);
-                content_dialog.setOrientation(LinearLayout.VERTICAL);
-                final EditText[] file_names = new EditText[2];
-                file_names[0] = new EditText(this);
-                file_names[0].setLayoutParams(layout_edittext);
-                file_names[0].setHint("File name for image");
-                file_names[1] = new EditText(this);
-                file_names[1].setLayoutParams(layout_edittext);
-                file_names[1].setHint("File name for filter");
-                content_dialog.addView(file_names[0]);
-                content_dialog.addView(file_names[1]);
+                final BasicDialog dialog_filename = new BasicDialog(this);
+                dialog_filename.setTitle("Will savev image and/or filter");
+                dialog_filename.addTextEditor("File name for image");
+                dialog_filename.addTextEditor("File name for filter");
 
-                AlertDialog.Builder dialog_builder = new AlertDialog.Builder(this);
-                dialog_builder.setTitle("Will savev image and/or filter");
-                dialog_builder.setCancelable(true);
-                dialog_builder.setView(content_dialog);
-
-                dialog_builder.setPositiveButton("Save", new DialogInterface.OnClickListener() {
+                dialog_filename.getDialogBuilder().setPositiveButton("Save",
+                        new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        if(file_names[0].getText().toString().length() > 0) {
+                        String img_name = ((EditText)dialog_filename.getContentDirectly(0)).getText().toString();
+                        String script_name = ((EditText)dialog_filename.getContentDirectly(1)).getText().toString();
+                        if(img_name.length() > 0) {
                             File image_file = new File(Environment.getExternalStorageDirectory()
                                     + getString(R.string.img_dir) + "/"
-                                    + file_names[0].getText().toString() + ".png");
+                                    + img_name + ".png");
                             saveImage(image, image_file);
 
                             file_origin = new File(image_file.getAbsolutePath());
                             file_last_image = new File(image_file.getAbsolutePath());
                         }
-                        if(file_names[1].getText().toString().length() > 0) {
+                        if(script_name.length() > 0) {
                             File filter_file = new File(Environment.getExternalStorageDirectory()
                                     + getString(R.string.script_dir) + "/"
-                                    + file_names[1].getText().toString() +".func");
+                                    + script_name +".func");
                             saveFilterScript(filter_file.getAbsolutePath());
                         }
                     }
                 });
-                dialog_filename = dialog_builder.create();
-                dialog_filename.show();
+                dialog_filename.finish();
 
                 this.if_saved = true;
                 break;
